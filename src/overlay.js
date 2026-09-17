@@ -178,8 +178,10 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .grp h4 { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3);
   margin: 0 0 10px; font: 500 var(--t2)/1.3 var(--ui); color: var(--fg); }
 .grp h4 .when { font-weight: 400; font-size: var(--t1); color: var(--fg-3); white-space: nowrap; }
-.tiles { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.tile { position: relative; width: 78px; height: 78px; border-radius: var(--r1); }
+/* Four to a row whatever the panel width, rather than a fixed tile size that
+   silently drops to three when the column is a few pixels short. */
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2); }
+.tile { position: relative; aspect-ratio: 1; border-radius: var(--r1); }
 .tile img { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: inherit;
   background: #2a2d31; cursor: pointer; }
 .tile::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
@@ -233,9 +235,9 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   align-items: flex-start; justify-content: center; gap: 2px; margin-bottom: 0;
   font-size: var(--t3); padding-right: var(--s4); border-right: 1px solid var(--hair); }
 .panel.maxed .grp h4 .when { white-space: nowrap; }
-.panel.maxed .tiles { flex: 1 1 auto; min-width: 0; align-items: flex-start; }
+.panel.maxed .tiles { display: flex; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; align-items: flex-start; }
 .panel.maxed .tiles { gap: var(--s3); }
-.panel.maxed .tile { width: auto; height: 240px; }
+.panel.maxed .tile { width: auto; height: 240px; aspect-ratio: auto; }
 .panel.maxed .tile img { width: auto; height: 100%; object-fit: cover; background: none; }
 .panel.maxed .tiles { align-items: flex-start; }
 .panel.maxed .mark { width: 26px; height: 26px; top: -7px; left: -7px; }
