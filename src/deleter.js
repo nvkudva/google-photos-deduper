@@ -114,6 +114,9 @@ window.GPDD = window.GPDD || {};
       await sleep(1200);
 
       let idle = 0;
+      let lastTop = -1;
+      let seen = 0;
+      let rounds = 0;
       while (targets.size && !shouldStop()) {
         // Same constraint as the scan: Google Photos stops rendering while the
         // tab is hidden, so there is nothing to click. Say so rather than
@@ -124,6 +127,8 @@ window.GPDD = window.GPDD || {};
           continue;
         }
 
+        seen += sel.liveTiles().length;
+        rounds++;
         const here = sel.liveTiles()
           .map((a) => ({ a, t: sel.readTile(a) }))
           .filter((x) => x.t && targets.has(x.t.id))
@@ -138,10 +143,19 @@ window.GPDD = window.GPDD || {};
             for (const x of here) {
               const cb = sel.tileCheckbox(x.a);
               if (!cb || cb.getAttribute('aria-checked') === 'true') continue;
-              if (await clickElement(cb)) {
-                picked.push(x.t.id);
-                await sleep(120);
+              const before = checkedCount();
+              if (!(await clickElement(cb))) continue;
+              // The first selection opens Google's own selection toolbar, which
+              // pushes the grid down - the next click then lands on whatever
+              // moved into those coordinates. Wait longer for that first one,
+              // and confirm each click actually took before counting it, so a
+              // missed click is retried rather than tripping the mismatch guard.
+              await sleep(picked.length === 0 ? 600 : 160);
+              if (checkedCount() === before) {
+                const again = sel.tileCheckbox(x.a);
+                if (again && (await clickElement(again))) await sleep(240);
               }
+              if (checkedCount() > before) picked.push(x.t.id);
             }
             const n = checkedCount();
             if (picked.length && n > 0) {
@@ -161,8 +175,22 @@ window.GPDD = window.GPDD || {};
           }
         }
 
+        // Google Photos grows scrollHeight as it renders, so early on the
+        // viewport really is at "the bottom" of what exists so far. Judging the
+        // end by that alone stopped a delete run 25k pixels into a 2.5M pixel
+        // library and reported every target as unreachable. The end is only the
+        // end when scrolling has also stopped moving, which is what the scan
+        // already required.
         const atBottom = scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 4;
-        if (atBottom) { if (++idle >= 3) break; } else idle = 0;
+        if (atBottom && scroller.scrollTop === lastTop) {
+          if (++idle >= 3) {
+            log(`reached the end at ${Math.round(scroller.scrollTop)} of ${scroller.scrollHeight}px`);
+            break;
+          }
+        } else {
+          idle = 0;
+        }
+        lastTop = scroller.scrollTop;
         scroller.scrollTop += Math.round(scroller.clientHeight * 0.75);
         await sleep(500);
       }
@@ -170,6 +198,7 @@ window.GPDD = window.GPDD || {};
       if (!dryRun) await bg('detach').catch(() => {});
     }
 
+    if (targets.size) log(`${rounds} rounds, ${seen} tiles inspected, ${targets.size} targets never seen`);
     return { deleted: deleted.length, wouldDelete, notFound: targets.size };
   }
 
