@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Google Photos DeDuper",
+  "version": "0.1.0",
+  "description": "Scans your Google Photos library in the browser, finds visually duplicate photos, and moves the ones you pick to the bin.",
+  "permissions": [
+    "debugger",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://photos.google.com/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "Google Photos DeDuper"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://photos.google.com/*"
+      ],
+      "run_at": "document_idle",
+      "js": [
+        "src/selectors.js",
+        "src/store.js",
+        "src/hash.js",
+        "src/scanner.js",
+        "src/grouping.js",
+        "src/deleter.js",
+        "src/overlay.js",
+        "src/content.js"
+      ]
+    }
+  ]
+}
