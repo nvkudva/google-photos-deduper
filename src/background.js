@@ -101,14 +101,22 @@ const RPC = /\/_\/PhotosUi\/data\/batchexecute/;
 const netLog = []; // { id, rpcids, ts, status }
 const NET_MAX = 400;
 
-const noteRequest = (url) => {
+const noteRequest = (url, postData) => {
   if (!RPC.test(url)) return null;
   let u;
   try { u = new URL(url); } catch (e) { return null; }
   const path = u.searchParams.get('source-path') || '';
   const m = path.match(/\/photo\/([^/?#&]+)/);
   if (!m) return null;
-  const row = { id: m[1], rpcids: u.searchParams.get('rpcids') || '', ts: Date.now(), status: 0 };
+  // Only whether the body names this photo is kept, never the body: it also
+  // carries the account's XSRF token.
+  const row = {
+    id: m[1],
+    rpcids: u.searchParams.get('rpcids') || '',
+    ts: Date.now(),
+    status: 0,
+    namesPhoto: typeof postData === 'string' && postData.includes(m[1]),
+  };
   netLog.push(row);
   if (netLog.length > NET_MAX) netLog.splice(0, netLog.length - NET_MAX);
   return row;
@@ -118,8 +126,18 @@ const pending = new Map(); // CDP requestId -> row
 chrome.debugger.onEvent.addListener((source, method, params) => {
   if (!source.tabId || !attached.has(source.tabId)) return;
   if (method === 'Network.requestWillBeSent') {
-    const row = noteRequest((params.request && params.request.url) || '');
-    if (row) pending.set(params.requestId, row);
+    const req = params.request || {};
+    const row = noteRequest(req.url || '', req.postData);
+    if (row) {
+      pending.set(params.requestId, row);
+      // Small bodies arrive inline; anything larger has to be fetched back.
+      if (!row.namesPhoto && req.hasPostData && typeof req.postData !== 'string') {
+        chrome.debugger
+          .sendCommand({ tabId: source.tabId }, 'Network.getRequestPostData', { requestId: params.requestId })
+          .then((r) => { if (r && typeof r.postData === 'string') row.namesPhoto = r.postData.includes(row.id); })
+          .catch(() => {});
+      }
+    }
   } else if (method === 'Network.responseReceived') {
     const row = pending.get(params.requestId);
     if (row) {

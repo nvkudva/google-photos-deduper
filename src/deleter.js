@@ -113,6 +113,7 @@ window.GPDD = window.GPDD || {};
     const deleted = [];
     let wouldDelete = 0;
     const missed = [];
+    let misses = 0;
 
     if (!dryRun) await bg('attach');
     try {
@@ -146,11 +147,17 @@ window.GPDD = window.GPDD || {};
 
         // Confirmation comes from the network, not the page: /photo/<id> looks
         // the same whether the photo is binned or not, the view does not move,
-        // and no snackbar is emitted. Opening the photo fires a fixed set of
-        // batchexecute rpcids for it; the click fires ones outside that set.
-        // Measured: open-only gave VrseUb/xPf9xf/CuHOKd, and the click added
-        // nQy5td, yQelMe and SXol3b on top - on a real delete and on a re-bin
-        // of an already-binned photo alike.
+        // and no snackbar is emitted.
+        //
+        // Two conditions together, because either alone lets something through.
+        // An rpcid the photo has not used yet rules out the reads that a plain
+        // open fires (VrseUb photo metadata, xPf9xf, CuHOKd). Requiring the
+        // request body to name the photo rules out the feed and thumbnail
+        // fetches (l5andd, SXol3b), which are novel but about other photos and
+        // can arrive from ordinary prefetching just after a click that missed.
+        // Matching on that pair rather than on a known rpcid keeps this working
+        // across Google's deploys - the build the ids belong to is named in the
+        // request URL.
         const before = await bg('netLog', { id, since: 0 });
         const seen = new Set(before.rows.map((r) => r.rpcids));
         const clickedAt = Date.now();
@@ -169,13 +176,22 @@ window.GPDD = window.GPDD || {};
             await clickElement(c.button);
           }
           const after = await bg('netLog', { id, since: clickedAt });
-          const hit = after.rows.find((r) => r.rpcids && !seen.has(r.rpcids) && r.status === 200);
+          const hit = after.rows.find((r) => r.rpcids && !seen.has(r.rpcids) && r.status === 200 && r.namesPhoto);
           if (hit) confirmedBy = hit.rpcids;
         }
+        // A photo already in the bin is the ordinary case for a stale store row,
+        // and Google sends no trash request for one. That is a skip, not a
+        // failure - but a run where nothing is landing should not grind through
+        // the whole selection, so give up after a few in a row.
         if (!confirmedBy) {
-          log(`${id.slice(-8)} - "Move to bin" produced no request, stopping before it silently does nothing`);
-          break;
+          missed.push(id);
+          if (++misses >= 5) {
+            log(`${misses} in a row produced no trash request - stopping`);
+            break;
+          }
+          continue;
         }
+        misses = 0;
 
         deleted.push(id);
         targets.delete(id);
@@ -189,7 +205,7 @@ window.GPDD = window.GPDD || {};
       if (!dryRun) await bg('detach').catch(() => {});
     }
 
-    if (missed.length) log(`${missed.length} could not be opened - they may already be gone`);
+    if (missed.length) log(`${missed.length} skipped - no trash request followed the click, so they were most likely already in the bin`);
     return { deleted: deleted.length, wouldDelete, notFound: targets.size };
   }
 
