@@ -1,7 +1,7 @@
 window.GPDD = window.GPDD || {};
 
 (() => {
-  const { sel, store, scanner, grouping, deleter, overlay } = window.GPDD;
+  const { sel, store, scanner, grouping, api, overlay } = window.GPDD;
   if (window.__gpddBooted) return;
   window.__gpddBooted = true;
 
@@ -160,25 +160,15 @@ window.GPDD = window.GPDD || {};
     state.running = true; state.stop = false;
     ui.scan.disabled = true; ui.stop.disabled = false; refresh();
     ui.setWarn('');
-    // The deleter drives Google's own photo view, so the panel steps aside for
-    // the compact bar the scan already uses - both to keep the photo visible
-    // and to stay clear of the toolbar it clicks.
-    ui.setScanning(true);
     ui.setStatus('Deleting…');
     let r = null;
     let failed = null;
     try {
-      r = await deleter.run({
+      r = await api.run({
         targetIds: [...state.toDelete],
-        dryRun: false,
         shouldStop: () => state.stop,
         onProgress: (p) => {
           if (p.log) return ui.addLog(p.log);
-          if (p.stalled) {
-            return ui.setStatus(
-              `Paused — this tab must stay visible for Google Photos to render. ${p.remaining} still to delete.`
-            );
-          }
           ui.setStatus(
             `Deleted ${p.deleted}` +
               (p.skipped ? ` · ${p.skipped} skipped` : '') +
@@ -193,7 +183,6 @@ window.GPDD = window.GPDD || {};
       state.running = false;
       ui.scan.disabled = false;
       ui.stop.disabled = true;
-      ui.setScanning(false);
       // Every confirmed deletion is already out of the store, so the cards have
       // to be rebuilt even when the run ended badly or was stopped part way -
       // otherwise they go on offering photos that are now in the bin.
@@ -238,8 +227,8 @@ window.GPDD = window.GPDD || {};
   }
 
   // Deliberately not window.confirm(): a content script's native dialog blocks
-  // the whole renderer, which freezes the very page the deleter has to drive.
-  // Two clicks on the button itself, with a timeout that disarms it.
+  // the whole renderer. Two clicks on the button itself, with a timeout that
+  // disarms it.
   let armed = null;
   ui.del.onclick = () => {
     const n = state.toDelete.size;

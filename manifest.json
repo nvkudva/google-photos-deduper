@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "description": "Scans your Google Photos library in the browser, finds visually duplicate photos, and moves the ones you pick to the bin.",
   "permissions": [
-    "debugger",
     "storage",
     "activeTab"
   ],
@@ -30,7 +29,7 @@
         "src/hash.js",
         "src/scanner.js",
         "src/grouping.js",
-        "src/deleter.js",
+        "src/api.js",
         "src/overlay.js",
         "src/content.js"
       ]

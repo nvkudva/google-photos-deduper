@@ -1,4 +1,4 @@
-// Two jobs: own the debugger session (trusted clicks), and hash thumbnails.
+// One job: hash thumbnails for the content script.
 //
 // Hashing lives here because the thumbnail host sends no CORS headers, so the
 // content script can only ever read a placeholder. An extension fetch covered by
@@ -86,98 +86,8 @@ async function hashRects(tab, rects, viewportWidth) {
   return { hashes: out };
 }
 
-// --------------------------------------------------------------- debugger ---
-const attached = new Set();
-
-// Whether a "Move to bin" click actually did anything cannot be read off the
-// page: /photo/<id> renders identically for a binned photo and a live one, the
-// photo does not leave the view, and no snackbar is emitted. What does differ
-// is the traffic. Opening a photo fires a fixed set of batchexecute RPCs for
-// that photo's source-path; clicking Move to bin fires further ones with rpcids
-// that were not in that set. Matching "an rpcid this photo has not used yet"
-// rather than a specific id keeps this working across Google's deploys, whose
-// build label (and obfuscated rpcids) change - the URL even carries the build.
-const RPC = /\/_\/PhotosUi\/data\/batchexecute/;
-const netLog = []; // { id, rpcids, ts, status }
-const NET_MAX = 400;
-
-const MEDIA_ID = /AF1Qip[A-Za-z0-9_-]{10,}/g;
-
-// Every batchexecute is recorded, not just the ones sent while the photo's own
-// page is open: after "Move to bin" the app moves on, so a request keyed to the
-// old source-path would be missed. Which photos a request is about is taken
-// from the ids in its body. Only those ids are kept - never the body, which
-// also carries the account's XSRF token.
-const noteRequest = (url, postData) => {
-  if (!RPC.test(url)) return null;
-  let u;
-  try { u = new URL(url); } catch (e) { return null; }
-  const body = typeof postData === 'string' ? postData : '';
-  const row = {
-    rpcids: u.searchParams.get('rpcids') || '',
-    path: u.searchParams.get('source-path') || '',
-    ids: [...new Set(body.match(MEDIA_ID) || [])],
-    ts: Date.now(),
-    status: 0,
-  };
-  netLog.push(row);
-  if (netLog.length > NET_MAX) netLog.splice(0, netLog.length - NET_MAX);
-  return row;
-};
-
-const pending = new Map(); // CDP requestId -> row
-chrome.debugger.onEvent.addListener((source, method, params) => {
-  if (!source.tabId || !attached.has(source.tabId)) return;
-  if (method === 'Network.requestWillBeSent') {
-    const req = params.request || {};
-    const row = noteRequest(req.url || '', req.postData);
-    if (row) {
-      pending.set(params.requestId, row);
-      // Small bodies arrive inline; anything larger has to be fetched back.
-      if (!row.ids.length && req.hasPostData && typeof req.postData !== 'string') {
-        chrome.debugger
-          .sendCommand({ tabId: source.tabId }, 'Network.getRequestPostData', { requestId: params.requestId })
-          .then((r) => {
-            if (r && typeof r.postData === 'string') row.ids = [...new Set(r.postData.match(MEDIA_ID) || [])];
-          })
-          .catch(() => {});
-      }
-    }
-  } else if (method === 'Network.responseReceived') {
-    const row = pending.get(params.requestId);
-    if (row) {
-      row.status = (params.response && params.response.status) || 0;
-      pending.delete(params.requestId);
-    }
-  }
-});
-
-async function attach(tabId) {
-  if (attached.has(tabId)) return;
-  await chrome.debugger.attach({ tabId }, '1.3');
-  attached.add(tabId);
-  // Needed for the delete confirmation above, not for the clicks.
-  try { await chrome.debugger.sendCommand({ tabId }, 'Network.enable'); } catch (e) { /* clicks still work */ }
-}
-
-async function detach(tabId) {
-  // Not gated on `attached`: after a service-worker restart the set is empty
-  // while the tab is still attached, and skipping the call would leave the
-  // debugger banner up for good. detach() on an unattached tab just throws.
-  attached.delete(tabId);
-  try { await chrome.debugger.detach({ tabId }); } catch (e) { /* tab may be gone */ }
-}
-
-async function click(tabId, x, y) {
-  const send = (p) => chrome.debugger.sendCommand({ tabId }, 'Input.dispatchMouseEvent', p);
-  await send({ type: 'mouseMoved', x, y, buttons: 0 });
-  await send({ type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
-  await send({ type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 });
-}
-
 // --------------------------------------------------------------- messaging ---
 chrome.runtime.onMessage.addListener((msg, sender, respond) => {
-  const tabId = sender.tab && sender.tab.id;
   (async () => {
     try {
       if (msg.type === 'reloadExtension') {
@@ -189,17 +99,6 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
         if (!sender.tab) return respond({ error: 'no tab' });
         return respond(await hashRects(sender.tab, msg.rects, msg.viewportWidth));
       }
-      if (!tabId) return respond({ error: 'no tab' });
-      if (msg.type === 'attach') { await attach(tabId); return respond({ ok: true }); }
-      if (msg.type === 'detach') { await detach(tabId); return respond({ ok: true }); }
-      if (msg.type === 'netLog') {
-        return respond({ rows: netLog.filter((r) => r.ids.includes(msg.id) && r.ts >= (msg.since || 0)) });
-      }
-      if (msg.type === 'cdpClick') {
-        await attach(tabId);
-        await click(tabId, msg.x, msg.y);
-        return respond({ ok: true });
-      }
       respond({ error: 'unknown message ' + msg.type });
     } catch (e) {
       respond({ error: String(e && e.message ? e.message : e) });
@@ -208,8 +107,6 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   return true;
 });
 
-chrome.debugger.onDetach.addListener((s) => { if (s.tabId) attached.delete(s.tabId); });
-chrome.tabs.onRemoved.addListener((id) => attached.delete(id));
 chrome.action.onClicked.addListener((tab) => {
   if (tab.id) chrome.tabs.sendMessage(tab.id, { type: 'togglePanel' }).catch(() => {});
 });

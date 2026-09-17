@@ -20,8 +20,8 @@ the photos.google.com UI. Everything below was verified against the live site.
 | Grid | virtualised — ~130 tiles live, ~108 dropped per 6000px of scroll |
 | Scroll container | a `c-wiz` in the main library, a plain `div[jsname]` in album views — found by walking up from a tile, not by tag |
 | Selection | per-tile `[role="checkbox"]`; date headers use the same role, labelled `"Select all …"` |
-| Deletion | `[aria-label="Move to bin"]` |
-| Input | **scripted clicks are ignored** — `.click()` and full synthetic pointer/mouse sequences both fail, including on the always-visible "Clear selection" button |
+| Deletion | the page's own `batchexecute` RPC (`XwAOJf`), which takes each photo's dedup key rather than the `/photo/<id>` media key; the media-info RPC (`VrseUb`) maps one to the other |
+| Input | **scripted clicks are ignored** — `.click()` and full synthetic pointer/mouse sequences both fail, including on the always-visible "Clear selection" button — which is why deletion talks to the RPC instead of the page |
 
 Because no download path works, nothing is downloaded: the service worker takes
 one `captureVisibleTab` screenshot per scroll step and crops each tile out of it,
@@ -34,15 +34,17 @@ only allows it under `<all_urls>` or `activeTab`, and a permission for
 photos.google.com alone is refused. The content script still only ever runs on
 photos.google.com.
 
-The input row is the reason for the `debugger` permission: trusted input events
-can only come from the DevTools protocol (`Input.dispatchMouseEvent`). Chrome
-shows a "Google Photos DeDuper started debugging this browser" bar whenever a
-delete pass is running; that is expected, and it only attaches during deletion.
+Deletion sends the same request Google Photos sends when you click "Move to
+bin", from the content script with the page's own session: up to 250 photos per
+request, and the reply names each photo it binned, which is what the extension
+counts. It is pinned to Google's private protocol; the request shapes come from
+[xob0t/Google-Photos-Toolkit](https://github.com/xob0t/Google-Photos-Toolkit)
+(MIT), which has shipped the same ones since 2024. If the shape ever changes the
+result is a skipped photo, never a wrongly binned one.
 
 ## Install
 
-Unpacked only. The `debugger` permission makes this impractical to publish on
-the Chrome Web Store, so there is no store listing to install from.
+Unpacked only. There is no store listing to install from.
 
 1. `chrome://extensions` → enable **Developer mode**
 2. **Load unpacked** → select this folder
@@ -59,9 +61,7 @@ worth walking through in this order on anything you have not scanned before:
    "every tile hashed identically". Spot-check that the photos inside a group
    really do look alike.
 3. **Dry run** — confirm the count it reports matches what you selected.
-4. Let it do one live delete on a single group, watch the checkbox tick, then
-   check the Bin. Google Photos sometimes shows a "Move to bin" confirm dialog
-   and sometimes trashes straight to an Undo snackbar; both are handled.
+4. Let it do one live delete on a single group, then check the Bin.
 
 Only then raise the cap.
 
@@ -94,15 +94,10 @@ Only then raise the cap.
 4. **Dry run** first — it reports what it would delete and touches nothing.
 5. **Move selected to bin** — click it twice (the button arms itself for five
    seconds rather than opening a dialog; a content script's native `confirm()`
-   blocks the whole renderer, including the page the deleter has to drive).
-   It deletes a screenful at a time, verifying the selection count before each
-   trash click. Items land in the Google Photos bin and stay recoverable
-   there for as long as Google keeps them.
-
-During a delete run you will see Chrome's "started debugging this browser" bar —
-that is the `debugger` permission at work, and it appears once per run — and
-Google's own "Moved to the bin / Undo" snackbar. Neither is avoidable. Google
-Photos trashes immediately without a confirm dialog of its own.
+   blocks the whole renderer). It bins 250 photos per request and only counts a
+   photo once Google's reply names it. Items land in the Google Photos bin and
+   stay recoverable there for as long as Google keeps them. Anything not
+   confirmed stays selected, so clicking again carries on.
 
 **Scope** is whatever grid you are on. The main library, an album, the
 `Screenshots and recordings` view, or a search result all work — open the view
