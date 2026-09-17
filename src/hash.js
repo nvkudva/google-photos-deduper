@@ -34,9 +34,17 @@ window.GPDD = window.GPDD || {};
     return n;
   };
   const degenerate = (hex) => {
-    if (!hex) return true;
+    if (!hex || hex.length !== 16) return true;
     const n = popcount(hex);
-    return n < 6 || n > 58;
+    if (n < 6 || n > 58) return true;
+    // The eight rows of a dHash are computed independently, so a real photo
+    // practically never repeats one. Two distinct rows or fewer means the crop
+    // had no vertical structure at all - flat scans hashed to 0101010101010101,
+    // which has a healthy popcount of 8 and so passed the count test, then
+    // matched every other such scan at distance 0.
+    const rows = new Set();
+    for (let i = 0; i < 16; i += 2) rows.add(hex.slice(i, i + 2));
+    return rows.size <= 2;
   };
 
   const ask = (msg) =>
