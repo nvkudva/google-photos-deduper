@@ -101,21 +101,24 @@ const RPC = /\/_\/PhotosUi\/data\/batchexecute/;
 const netLog = []; // { id, rpcids, ts, status }
 const NET_MAX = 400;
 
+const MEDIA_ID = /AF1Qip[A-Za-z0-9_-]{10,}/g;
+
+// Every batchexecute is recorded, not just the ones sent while the photo's own
+// page is open: after "Move to bin" the app moves on, so a request keyed to the
+// old source-path would be missed. Which photos a request is about is taken
+// from the ids in its body. Only those ids are kept - never the body, which
+// also carries the account's XSRF token.
 const noteRequest = (url, postData) => {
   if (!RPC.test(url)) return null;
   let u;
   try { u = new URL(url); } catch (e) { return null; }
-  const path = u.searchParams.get('source-path') || '';
-  const m = path.match(/\/photo\/([^/?#&]+)/);
-  if (!m) return null;
-  // Only whether the body names this photo is kept, never the body: it also
-  // carries the account's XSRF token.
+  const body = typeof postData === 'string' ? postData : '';
   const row = {
-    id: m[1],
     rpcids: u.searchParams.get('rpcids') || '',
+    path: u.searchParams.get('source-path') || '',
+    ids: [...new Set(body.match(MEDIA_ID) || [])],
     ts: Date.now(),
     status: 0,
-    namesPhoto: typeof postData === 'string' && postData.includes(m[1]),
   };
   netLog.push(row);
   if (netLog.length > NET_MAX) netLog.splice(0, netLog.length - NET_MAX);
@@ -131,10 +134,12 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
     if (row) {
       pending.set(params.requestId, row);
       // Small bodies arrive inline; anything larger has to be fetched back.
-      if (!row.namesPhoto && req.hasPostData && typeof req.postData !== 'string') {
+      if (!row.ids.length && req.hasPostData && typeof req.postData !== 'string') {
         chrome.debugger
           .sendCommand({ tabId: source.tabId }, 'Network.getRequestPostData', { requestId: params.requestId })
-          .then((r) => { if (r && typeof r.postData === 'string') row.namesPhoto = r.postData.includes(row.id); })
+          .then((r) => {
+            if (r && typeof r.postData === 'string') row.ids = [...new Set(r.postData.match(MEDIA_ID) || [])];
+          })
           .catch(() => {});
       }
     }
@@ -188,7 +193,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       if (msg.type === 'attach') { await attach(tabId); return respond({ ok: true }); }
       if (msg.type === 'detach') { await detach(tabId); return respond({ ok: true }); }
       if (msg.type === 'netLog') {
-        return respond({ rows: netLog.filter((r) => r.id === msg.id && r.ts >= (msg.since || 0)) });
+        return respond({ rows: netLog.filter((r) => r.ids.includes(msg.id) && r.ts >= (msg.since || 0)) });
       }
       if (msg.type === 'cdpClick') {
         await attach(tabId);

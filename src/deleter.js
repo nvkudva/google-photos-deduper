@@ -149,17 +149,25 @@ window.GPDD = window.GPDD || {};
         // the same whether the photo is binned or not, the view does not move,
         // and no snackbar is emitted.
         //
-        // Two conditions together, because either alone lets something through.
-        // An rpcid the photo has not used yet rules out the reads that a plain
-        // open fires (VrseUb photo metadata, xPf9xf, CuHOKd). Requiring the
-        // request body to name the photo rules out the feed and thumbnail
-        // fetches (l5andd, SXol3b), which are novel but about other photos and
-        // can arrive from ordinary prefetching just after a click that missed.
-        // Matching on that pair rather than on a known rpcid keeps this working
-        // across Google's deploys - the build the ids belong to is named in the
-        // request URL.
+        // What this proves is that the app reacted to the click, not that the
+        // photo was trashed. The trash request itself has never been caught
+        // naming the photo: recording every batchexecute and extracting the
+        // media ids from each body finds only reads about it - VrseUb photo
+        // metadata, xPf9xf, yQelMe/CuHOKd, and the SXol3b thumbnail batch. The
+        // likely reason is nQy5td, which fires on the click and returns an
+        // encrypted Tink key, so the trash call probably carries an opaque
+        // token instead of the media key.
+        //
+        // So this is a liveness check, deliberately not a receipt. It is why
+        // failing it is a skip rather than an error, and why a photo already in
+        // the bin still passes. Deletions were verified the only way that is
+        // currently sound: four photos looked up in /trash by id afterwards.
+        // Split the rpcids: batchexecute batches several RPCs into one request,
+        // so the combined string "yQelMe,CuHOKd" looked new even though CuHOKd
+        // had already been seen on its own - which is exactly what made a read
+        // confirm a deletion.
         const before = await bg('netLog', { id, since: 0 });
-        const seen = new Set(before.rows.map((r) => r.rpcids));
+        const seen = new Set(before.rows.flatMap((r) => r.rpcids.split(',')));
         const clickedAt = Date.now();
         if (!(await clickElement(bin))) {
           missed.push(id);
@@ -176,7 +184,9 @@ window.GPDD = window.GPDD || {};
             await clickElement(c.button);
           }
           const after = await bg('netLog', { id, since: clickedAt });
-          const hit = after.rows.find((r) => r.rpcids && !seen.has(r.rpcids) && r.status === 200 && r.namesPhoto);
+          const hit = after.rows.find(
+            (r) => r.status === 200 && r.rpcids.split(',').some((x) => x && !seen.has(x))
+          );
           if (hit) confirmedBy = hit.rpcids;
         }
         // A photo already in the bin is the ordinary case for a stale store row,
