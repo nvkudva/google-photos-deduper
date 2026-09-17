@@ -177,6 +177,15 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .modal img { display: block; border-radius: var(--r1); object-fit: contain;
   max-width: 84vw; max-height: 72vh; background: var(--sunken); }
 .modal .mbar { display: flex; align-items: center; gap: var(--s3); }
+.nums { display: flex; gap: var(--s1); }
+.num { width: 30px; height: 30px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--fg-2);
+  font: 500 var(--t2)/1 var(--ui); }
+.num:hover { background: var(--chrome); color: var(--fg); }
+.num.now { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+/* A ring marks whichever photo is currently the keeper, so switching between
+   them shows what the decision is without leaving the dialog. */
+.num.kept { box-shadow: 0 0 0 2px var(--keep); }
 .modal .mcap { flex: 1 1 auto; font-size: var(--t1); color: var(--fg-3); }
 .preview { position: fixed; z-index: 2147483646; display: none; pointer-events: none;
   background: var(--bg); border: 1px solid var(--line); border-radius: var(--r2); padding: var(--s2);
@@ -223,6 +232,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 <div class="scrim"><div class="modal" role="dialog" aria-modal="true">
   <img alt="">
   <div class="mbar">
+    <div class="nums"></div>
     <span class="mcap"></span>
     <button class="act sec mkeep" type="button">Keep this one</button>
     <button class="act sec mclose" type="button">Close</button>
@@ -247,7 +257,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       bar: $('.bar i'), status: $('.status'), log: $('.log'), results: $('.results'),
       dry: $('.dry'), del: $('.del'), min: $('.min'),
       preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
-      scrim: $('.scrim'), modalImg: $('.modal img'), modalCap: $('.mcap'),
+      scrim: $('.scrim'), modalImg: $('.modal img'), modalCap: $('.mcap'), nums: $('.nums'),
       mkeep: $('.mkeep'), mclose: $('.mclose'),
       max: $('.max'),
     };
@@ -273,8 +283,10 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     ui.scrim.onclick = (e) => { if (e.target === ui.scrim) ui.closeModal(); };
     root.addEventListener('keydown', (e) => { if (e.key === 'Escape') ui.closeModal(); });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && ui.scrim.classList.contains('on')) ui.closeModal();
-    });
+      if (!ui.scrim.classList.contains('on')) return;
+      if (e.key === 'Escape') return ui.closeModal();
+      if (ui.modalKeys) ui.modalKeys(e);
+    }, true);
     ui.syncChrome();
     ui.sim.oninput = () => (ui.simv.textContent = ui.sim.value + '%');
 
@@ -379,28 +391,74 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   // stays put until dismissed, and carries the keeper action so clicking a
   // photo does not lose the decision it used to make.
   let modalSeq = 0;
-  function openModal(ui, item, onKeep) {
-    const seq = ++modalSeq;
-    ui.modalImg.onload = null;
-    ui.modalImg.src = item.thumb || ''; // cached, so the right photo shows at once
-    ui.modalCap.textContent =
-      (item.ts ? new Date(item.ts).toLocaleString() : 'date unknown') +
-      (item.kind && item.kind !== 'Photo' ? ` \u00b7 ${item.kind}` : '');
-    const big = new Image();
-    big.onload = () => {
-      if (seq === modalSeq) ui.modalImg.src = big.src;
+
+  // Takes the whole group, not one photo: numbered buttons switch between the
+  // duplicates in place, and "Keep this one" applies to whichever is on screen,
+  // so a decision can be made by looking rather than by remembering.
+  function openModal(ui, group, startIdx, state, keepItem) {
+    let idx = startIdx;
+
+    const draw = () => {
+      const item = group.items[idx];
+      const seq = ++modalSeq;
+      ui.modalImg.onload = null;
+      ui.modalImg.src = item.thumb || ''; // cached, so the right photo shows at once
+      ui.modalCap.textContent =
+        `${idx + 1} of ${group.items.length} \u00b7 ` +
+        (item.ts ? new Date(item.ts).toLocaleString() : 'date unknown') +
+        (item.kind && item.kind !== 'Photo' ? ` \u00b7 ${item.kind}` : '');
+      const big = new Image();
+      big.onload = () => {
+        if (seq === modalSeq) ui.modalImg.src = big.src;
+      };
+      big.src = bigUrl(item.thumb || '', 1600);
+      [...ui.nums.children].forEach((b, i) => {
+        b.classList.toggle('now', i === idx);
+        b.classList.toggle('kept', !state.toDelete.has(group.items[i].id));
+      });
+      ui.mkeep.disabled = !state.toDelete.has(item.id);
+      ui.mkeep.textContent = ui.mkeep.disabled ? 'Keeping this one' : 'Keep this one';
     };
-    big.src = bigUrl(item.thumb || '', 1600);
+
+    const go = (n) => {
+      idx = (n + group.items.length) % group.items.length;
+      draw();
+    };
+
+    ui.nums.textContent = '';
+    group.items.forEach((it, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'num';
+      b.textContent = String(i + 1);
+      b.title = `Show photo ${i + 1}`;
+      b.onclick = () => go(i);
+      ui.nums.append(b);
+    });
+
     ui.mkeep.onclick = () => {
-      onKeep();
+      keepItem(group.items[idx]);
       closeModal(ui);
     };
+
+    // Arrows step through, number keys jump straight to one.
+    ui.modalKeys = (e) => {
+      if (e.key === 'ArrowRight') go(idx + 1);
+      else if (e.key === 'ArrowLeft') go(idx - 1);
+      else if (/^[1-9]$/.test(e.key) && Number(e.key) <= group.items.length) go(Number(e.key) - 1);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
     ui.scrim.classList.add('on');
+    draw();
     ui.mclose.focus();
   }
 
   function closeModal(ui) {
     modalSeq++;
+    ui.modalKeys = null;
     ui.scrim.classList.remove('on');
   }
 
@@ -431,7 +489,12 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       box.append(h);
       const tiles = document.createElement('div');
       tiles.className = 'tiles';
-      g.items.forEach((it) => {
+      const keepItem = (item) => {
+        g.items.forEach((o) => state.toDelete.add(o.id));
+        state.toDelete.delete(item.id);
+        onChange();
+      };
+      g.items.forEach((it, idx) => {
         const t = document.createElement('div');
         const marked = state.toDelete.has(it.id);
         t.className = 'tile ' + (marked ? 'bin' : 'keeper');
@@ -440,17 +503,12 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
         img.src = maxed ? bigUrl(it.thumb || '', 512) : it.thumb || '';
         img.loading = 'lazy';
         img.alt = '';
-        const makeKeeper = () => {
-          g.items.forEach((o) => state.toDelete.add(o.id));
-          state.toDelete.delete(it.id);
-          onChange();
-        };
         img.title = maxed
           ? 'Click to view full size'
           : marked
             ? 'Keep this one instead'
             : 'Keeping this one';
-        img.onclick = maxed ? () => openModal(ui, it, makeKeeper) : makeKeeper;
+        img.onclick = maxed ? () => openModal(ui, g, idx, state, keepItem) : () => keepItem(it);
         // The badge is the per-item toggle the old text caption used to be.
         const mark = document.createElement('button');
         mark.type = 'button';

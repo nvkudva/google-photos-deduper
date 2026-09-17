@@ -85,8 +85,11 @@ Only then raise the cap.
    page: same controls and the same Dry run / Move to bin actions, but every
    group laid out as a row — count and date in the first column, photos filling
    the rest at 240px tall and their own aspect ratio. There, **click** a photo
-   to open it centred at full size with Keep this one / Close; Escape or a click
-   outside also dismisses it. The minimise button collapses the panel to its
+   to open it centred at full size. Numbered buttons switch between the photos
+   in that group without leaving the dialog — arrow keys and the number keys
+   work too — and a green ring marks whichever is currently the keeper, so
+   **Keep this one** applies to whatever is on screen. Escape, Close, or a click
+   outside dismisses it. The minimise button collapses the panel to its
    title bar.
 4. **Dry run** first — it reports what it would delete and touches nothing.
 5. **Move selected to bin** — click it twice (the button arms itself for five
