@@ -27,6 +27,18 @@ function dhashFrom(bitmap, sx, sy, sw, sh) {
     const o = i * 4;
     grey[i] = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
   }
+  // A flat crop carries no signal. That happens when a tile is captured before
+  // its thumbnail paints, and its dHash comes out all zeros - which then sits
+  // within threshold of every other near-blank crop and chains them all into
+  // one enormous bogus "duplicate" group. Refuse to hash it; the scanner leaves
+  // the tile unmarked and picks it up on a later pass.
+  let sum = 0;
+  for (let i = 0; i < W * H; i++) sum += grey[i];
+  const mean = sum / (W * H);
+  let varSum = 0;
+  for (let i = 0; i < W * H; i++) varSum += (grey[i] - mean) ** 2;
+  if (Math.sqrt(varSum / (W * H)) < 5) return null;
+
   let bits = '';
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W - 1; x++) bits += grey[y * W + x] < grey[y * W + x + 1] ? '1' : '0';

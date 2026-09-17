@@ -23,6 +23,12 @@ window.GPDD = window.GPDD || {};
     if (problems.length) throw new Error('Google Photos UI changed: ' + problems.join('; '));
 
     const scroller = sel.findScroller();
+
+    // Drop rows whose hash came from a flat crop, so this pass hashes those
+    // photos properly instead of leaving them permanently unmatched.
+    const poisoned = (await store.allItems()).filter((i) => hash.degenerate(i.hash)).map((i) => i.id);
+    if (poisoned.length) await store.remove(poisoned);
+
     const known = await store.knownIds();
     const seenThisRun = new Set();
 
@@ -38,7 +44,10 @@ window.GPDD = window.GPDD || {};
       });
       if (!fresh.length) return 0;
 
-      const cand = hash.croppable(fresh, blockedRect()).slice(0, 120);
+      // Only tiles whose thumbnail has actually painted: an unpainted tile
+      // crops to a flat rectangle, which is worse than not hashing it at all.
+      const painted = fresh.filter((a) => sel.thumbUrl(a));
+      const cand = hash.croppable(painted, blockedRect()).slice(0, 120);
       if (!cand.length) return 0;
 
       // Rects are re-read inside the hidden-chrome window so the screenshot and

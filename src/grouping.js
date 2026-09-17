@@ -9,8 +9,12 @@ window.GPDD = window.GPDD || {};
 
   const maxDistance = (similarityPct) => Math.round(((100 - similarityPct) / 100) * 64);
 
+  const degenerate = (hex) => hash.degenerate(hex);
+
   function group(items, { similarity = 90, includeVideos = false } = {}) {
-    const pool = items.filter((i) => i.hash && (includeVideos || i.kind !== 'Video'));
+    const pool = items.filter(
+      (i) => i.hash && !degenerate(i.hash) && (includeVideos || i.kind !== 'Video')
+    );
     const maxD = maxDistance(similarity);
 
     const parent = new Map(pool.map((i) => [i.id, i.id]));

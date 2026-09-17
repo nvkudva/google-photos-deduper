@@ -24,6 +24,21 @@ window.GPDD = window.GPDD || {};
     return dist;
   }
 
+  // A hash with almost no bits set (or almost all) came from a flat crop - a
+  // tile captured before its thumbnail painted. It carries no information and
+  // sits within threshold of every other flat crop, which chains them into one
+  // enormous bogus group. Such rows are purged and re-hashed, not kept.
+  const popcount = (hex) => {
+    let n = 0;
+    for (const c of hex) n += (parseInt(c, 16).toString(2).match(/1/g) || []).length;
+    return n;
+  };
+  const degenerate = (hex) => {
+    if (!hex) return true;
+    const n = popcount(hex);
+    return n < 6 || n > 58;
+  };
+
   const ask = (msg) =>
     new Promise((res, rej) => {
       chrome.runtime.sendMessage(msg, (r) => {
@@ -52,5 +67,5 @@ window.GPDD = window.GPDD || {};
   // Resolves to { hashes } or { inactive: true } when the tab is not frontmost.
   const hashRects = (rects) => ask({ type: 'hashRects', rects, viewportWidth: window.innerWidth });
 
-  window.GPDD.hash = { hamming, hashRects, croppable };
+  window.GPDD.hash = { hamming, hashRects, croppable, degenerate, popcount };
 })();
