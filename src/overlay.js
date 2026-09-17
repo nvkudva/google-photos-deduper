@@ -298,7 +298,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   </div>
   <div class="ft">
     <div class="row">
-      <span class="hint">Recoverable from the bin for 60 days.</span>
+      <span class="hint">Recoverable from the bin.</span>
       <button class="act danger del" disabled><span class="dellbl">Move selected to bin</span></button>
     </div>
   </div>

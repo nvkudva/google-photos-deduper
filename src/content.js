@@ -152,7 +152,7 @@ window.GPDD = window.GPDD || {};
       });
       await regroup();
       // regroup() rewrites the status line, so the outcome goes on last.
-      ui.setStatus(`Moved ${r.deleted} to the bin — recoverable there for 60 days.` + (r.notFound ? ` ${r.notFound} were not reachable.` : ''));
+      ui.setStatus(`Moved ${r.deleted} to the bin — recoverable there.` + (r.notFound ? ` ${r.notFound} were not reachable.` : ''));
     } catch (e) {
       ui.setWarn(String(e.message || e));
       ui.setStatus('Delete stopped.');
@@ -176,7 +176,7 @@ window.GPDD = window.GPDD || {};
       // Kept short on purpose: a longer label reflows the footer and moves the
       // button out from under the pointer, so the confirming click misses.
       ui.dellbl.textContent = 'Confirm delete';
-      ui.setStatus(`Click the red button again to move ${n} to the bin. Recoverable there for 60 days.`);
+      ui.setStatus(`Click the red button again to move ${n} to the bin. Recoverable from the bin.`);
       return;
     }
     clearTimeout(armed);

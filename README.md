@@ -96,8 +96,8 @@ Only then raise the cap.
    seconds rather than opening a dialog; a content script's native `confirm()`
    blocks the whole renderer, including the page the deleter has to drive).
    It deletes a screenful at a time, verifying the selection count before each
-   trash click. Items land in the Google Photos bin and stay recoverable there
-   for 60 days.
+   trash click. Items land in the Google Photos bin and stay recoverable
+   there for as long as Google keeps them.
 
 During a delete run you will see Chrome's "started debugging this browser" bar —
 that is the `debugger` permission at work, and it appears once per run — and
