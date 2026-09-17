@@ -78,6 +78,7 @@ window.GPDD = window.GPDD || {};
     state.running = true; state.stop = false;
     ui.scan.disabled = true; ui.stop.disabled = false; refresh();
     ui.setWarn('');
+    ui.setScanning(true);
     const range = ui.range.get();
     ui.setStatus(
       (range.full ? 'Scanning…' : `Scanning ${range.label}…`) +
@@ -89,12 +90,9 @@ window.GPDD = window.GPDD || {};
         fromMs: range.fromMs,
         toMs: range.toMs,
         shouldStop: () => state.stop,
-        // The panel is hidden for the instant the screenshot is taken, so it
-        // cannot end up cropped into a tile's hash.
-        hideChrome: async (fn) => {
-          ui.host.style.visibility = 'hidden';
-          try { return await fn(); } finally { ui.host.style.visibility = ''; }
-        },
+        // Tiles under the scanning bar are left for a later scroll position
+        // rather than the bar being hidden and restored around every capture.
+        blockedRect: () => ui.blockedRect(),
         onProgress: (p) => {
           if (p.stalled) return ui.setStatus('Paused — this tab must stay visible for Google Photos to render.');
           if (p.seeking) {
@@ -121,11 +119,13 @@ window.GPDD = window.GPDD || {};
       ui.setStatus('Scan stopped.');
     } finally {
       state.running = false;
+      ui.setScanning(false);
       ui.scan.disabled = false; ui.stop.disabled = true; refresh();
     }
   };
 
   ui.stop.onclick = () => { state.stop = true; ui.setStatus('Stopping…'); };
+  ui.scanstop.onclick = () => ui.stop.onclick();
 
   ui.reset.onclick = async () => {
     await store.clear();

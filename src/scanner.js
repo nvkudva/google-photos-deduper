@@ -17,7 +17,6 @@ window.GPDD = window.GPDD || {};
     onProgress = () => {},
     shouldStop = () => false,
     blockedRect = () => null,
-    hideChrome = async (fn) => fn(),
     fromMs = null, // inclusive, oldest end of the range
     toMs = null,   // exclusive, newest end of the range
   } = {}) {
@@ -73,8 +72,29 @@ window.GPDD = window.GPDD || {};
       // moves older, so overshooting drops photos instead of scanning them.
       const travel = scroller.scrollHeight - scroller.clientHeight;
       scroller.scrollTop = Math.max(0, Math.round(lo * travel) - scroller.clientHeight * 2);
-      await sleep(650);
+      // The jump lands on a part of the grid Photos has never rendered, so this
+      // is the longest wait in the run.
+      await settle(10000);
       return true;
+    }
+
+    // Google Photos draws a tile's box before its thumbnail arrives, and an
+    // unpainted tile is skipped rather than hashed. After a jump, or any scroll
+    // that outruns the network, a whole screenful can be blank - so the walk
+    // waits for the screenful to paint instead of scrolling past it.
+    async function settle(maxMs) {
+      const deadline = Date.now() + maxMs;
+      let best = 0;
+      for (;;) {
+        const live = sel.liveTiles();
+        if (live.length) {
+          const ratio = live.filter((a) => sel.thumbUrl(a)).length / live.length;
+          if (ratio >= 0.9) return ratio;
+          if (ratio > best) best = ratio;
+        }
+        if (Date.now() >= deadline) return best;
+        await sleep(250);
+      }
     }
 
     const tileTimes = () =>
@@ -114,15 +134,13 @@ window.GPDD = window.GPDD || {};
       const cand = hash.croppable(painted, blockedRect()).slice(0, 120);
       if (!cand.length) return 0;
 
-      // Rects are re-read inside the hidden-chrome window so the screenshot and
-      // the crop boxes describe the same frame.
-      const res = await hideChrome(async () => {
-        const rects = cand.map(({ a }) => {
-          const r = a.getBoundingClientRect();
-          return { x: r.left, y: r.top, w: r.width, h: r.height };
-        });
-        return hash.hashRects(rects);
+      // Rects are read immediately before the capture so the screenshot and the
+      // crop boxes describe the same frame.
+      const rects = cand.map(({ a }) => {
+        const r = a.getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height };
       });
+      const res = await hash.hashRects(rects);
       // A backgrounded tab cannot be captured. That is a pause, not a failure.
       if (res.inactive) return -1;
       const hashes = res.hashes;
@@ -221,8 +239,10 @@ window.GPDD = window.GPDD || {};
       lastTop = scroller.scrollTop;
 
       scroller.scrollTop += Math.round(scroller.clientHeight * 0.6);
-      // Google Photos renders on rAF; let the new rows paint before capturing.
-      await sleep(650);
+      // Google Photos renders on rAF and fetches thumbnails over the network;
+      // let the new rows actually paint before capturing them.
+      await sleep(250);
+      await settle(4000);
     }
 
     await store.setMeta('lastScan', { at: Date.now(), scanned: known.size, skipped });

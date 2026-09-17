@@ -104,6 +104,18 @@ button.pill i { font-style: normal; color: var(--fg-3); margin-left: 5px; font-s
   color: var(--accent); font: 400 var(--t1)/1.2 var(--ui); }
 .rest .all:disabled { color: var(--fg-3); cursor: default; }
 .panel.maxed .range { margin: 0; }
+
+/* Shown in place of the panel while a scan runs. The panel used to be hidden
+   and restored around every screenshot, which read as a flicker once a second;
+   this stays put, and its rect is excluded from hashing instead. */
+.scanbar { display: none; position: fixed; right: var(--s4); bottom: var(--s4); z-index: 2147483646;
+  align-items: center; gap: var(--s3); max-width: 380px;
+  padding: 10px var(--s3) 10px var(--s4); border-radius: 999px;
+  background: var(--chrome); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.scanbar.on { display: flex; }
+.scanbar .msg { flex: 1 1 auto; color: var(--fg-2); font-size: var(--t2); line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scanbar .act { padding: 5px 13px; font-size: var(--t2); }
 .simv { min-width: 34px; text-align: right; font: 500 var(--t3)/1 var(--ui);
   color: var(--fg); font-variant-numeric: tabular-nums; }
 
@@ -303,6 +315,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     </div>
   </div>
 </div>
+<div class="scanbar"><span class="msg"></span><button class="act sec scanstop" type="button">Stop</button></div>
 <div class="preview"><img alt=""><b></b></div>
 <div class="scrim"><div class="modal" role="dialog" aria-modal="true">
   <img alt="">
@@ -531,6 +544,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       cap: $('.cap'), vid: $('.vid'), scan: $('.scan'), stop: $('.stop'), reset: $('.reset'),
       bar: $('.bar i'), status: $('.status'), log: $('.log'), results: $('.results'),
       del: $('.del'), dellbl: $('.dellbl'), min: $('.min'),
+      scanbar: $('.scanbar'), scanmsg: $('.scanbar .msg'), scanstop: $('.scanstop'),
       preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
       scrim: $('.scrim'), modalImg: $('.modal img'), modalCap: $('.mcap'), nums: $('.nums'),
       mkeep: $('.mkeep'), mclose: $('.mclose'),
@@ -568,7 +582,21 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     ui.syncChrome();
     ui.sim.oninput = () => (ui.simv.textContent = ui.sim.value + '%');
 
-    ui.setStatus = (t) => (ui.status.textContent = t);
+    // While a scan runs the panel steps aside for a compact bar, so the only
+    // thing overlapping the grid is something small enough to hash around.
+    ui.setScanning = (on) => {
+      ui.panel.style.display = on ? 'none' : '';
+      ui.scanbar.classList.toggle('on', on);
+    };
+    ui.blockedRect = () => {
+      const el = ui.scanbar.classList.contains('on') ? ui.scanbar : ui.panel;
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    };
+    ui.setStatus = (t) => {
+      ui.status.textContent = t;
+      ui.scanmsg.textContent = t;
+    };
     ui.setBar = (pct) => (ui.bar.style.width = Math.max(0, Math.min(100, pct)) + '%');
     ui.addLog = (t) => {
       ui.log.classList.add('on');
