@@ -28,7 +28,9 @@ window.GPDD = window.GPDD || {};
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
   --r1: 6px; --r2: 10px; --r3: 14px;
   --t1: 11px; --t2: 12px; --t3: 13px; --t4: 15px;
-  --ui: 'Google Sans', Roboto, system-ui, -apple-system, sans-serif;
+  /* Exactly the stack photos.google.com sets on its own body, so the panel
+     renders in the same face as the page it sits on. */
+  --ui: 'Google Sans Text', 'Google Sans', Roboto, Arial, sans-serif;
 }
 .panel { position: fixed; right: var(--s4); bottom: var(--s4); width: 380px; max-height: 78vh;
   display: flex; flex-direction: column; z-index: 2147483647;
@@ -157,7 +159,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .status { min-height: 18px; color: var(--fg-2); font-size: var(--t2); line-height: 1.5; }
 .note { color: var(--fg-3); font-size: var(--t2); padding: var(--s2) var(--s1) 0; }
 .log { display: none; margin-top: var(--s3); max-height: 96px; overflow: auto;
-  font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg-3);
+  font: 400 11px/1.6 var(--ui); color: var(--fg-3);
   background: var(--sunken); border: 1px solid var(--hair); border-radius: var(--r1);
   padding: var(--s2) 10px; white-space: pre-wrap; }
 .log.on { display: block; }
