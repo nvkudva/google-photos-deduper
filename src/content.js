@@ -160,12 +160,17 @@ window.GPDD = window.GPDD || {};
     state.running = true; state.stop = false;
     ui.scan.disabled = true; ui.stop.disabled = false; refresh();
     ui.setWarn('');
+    // Same reason as the scan: the panel is the topmost element on the page, so
+    // a click aimed at a tile underneath it is delivered to the panel instead.
+    // Step aside for the compact bar, and tell the deleter what that bar covers.
+    ui.setScanning(true);
     ui.setStatus('Deleting…');
     try {
       const r = await deleter.run({
         targetIds: [...state.toDelete],
         dryRun: false,
         shouldStop: () => state.stop,
+        blockedRect: () => ui.blockedRect(),
         onProgress: (p) => {
           if (p.log) return ui.addLog(p.log);
           if (p.stalled) {
@@ -184,6 +189,7 @@ window.GPDD = window.GPDD || {};
       ui.setStatus('Delete stopped.');
     } finally {
       state.running = false;
+      ui.setScanning(false);
       ui.scan.disabled = false; ui.stop.disabled = true; refresh();
     }
   }

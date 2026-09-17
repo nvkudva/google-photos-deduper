@@ -25,10 +25,25 @@ window.GPDD = window.GPDD || {};
   const clickAt = (rect) =>
     bg('cdpClick', { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) });
 
+  // The overlay is the topmost element on the page, so a CDP click at a point
+  // it covers is delivered to the overlay, not to the tile underneath. Verified
+  // with document.elementFromPoint: 7 of 38 otherwise-clickable tiles resolved
+  // to the panel host. A skipped tile is not lost - the walk scrolls by 0.75 of
+  // a viewport, so anything under the bar at the bottom of one step is in the
+  // upper part of the next one.
+  let blocked = () => null;
+  const occluded = (r) => {
+    const b = blocked();
+    return !!b && r.right > b.left && r.left < b.right && r.bottom > b.top && r.top < b.bottom;
+  };
+
   // `kind` picks the guard: tiles must clear the header, buttons must not.
+  // Only tiles are tested against the overlay; the toolbar and dialog buttons
+  // it would also match are Google's own and have to stay clickable.
   async function clickElement(el, kind = 'tile') {
     const rect = kind === 'button' ? sel.buttonRect(el) : sel.safeRect(el); // re-read immediately before dispatch
     if (!rect) return false;
+    if (kind !== 'button' && occluded(rect)) return false;
     await clickAt(rect);
     return true;
   }
@@ -93,7 +108,11 @@ window.GPDD = window.GPDD || {};
     if (btn) await clickElement(btn, 'button');
   }
 
-  async function run({ targetIds, dryRun = true, batchSize = 30, onProgress = () => {}, shouldStop = () => false }) {
+  async function run({
+    targetIds, dryRun = true, batchSize = 30,
+    onProgress = () => {}, shouldStop = () => false, blockedRect = () => null,
+  }) {
+    blocked = blockedRect;
     const targets = new Set(targetIds);
     const log = (m) => onProgress({ log: m });
 
@@ -158,6 +177,11 @@ window.GPDD = window.GPDD || {};
               if (checkedCount() > before) picked.push(x.t.id);
             }
             const n = checkedCount();
+            // Nothing of ours got selected, but something is checked - a click
+            // that landed late, or a selection left over from a previous round.
+            // Clear it here: carried into the next round it inflates that
+            // round's count and trips the mismatch guard below.
+            if (!picked.length && n > 0) await clearSelection();
             if (picked.length && n > 0) {
               if (n !== picked.length) {
                 log(`selection mismatch: clicked ${picked.length}, ${n} checked - stopping`);
