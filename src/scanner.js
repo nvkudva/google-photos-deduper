@@ -22,6 +22,7 @@ window.GPDD = window.GPDD || {};
   const SOURCE_LIBRARY = 1; // 2 archive, 3 both
   const DURATION_KEY = '76647426'; // in the item's trailing object; present only for videos
   const IN_FLIGHT = 128;
+  const MIN_IN_FLIGHT = 8;
   const HASH_SIZE = '=w32-h32'; // fit inside, aspect kept - what dHash expects
   const THUMB_SIZE = '=w192-h192-no'; // what the results panel shows
 
@@ -48,7 +49,7 @@ window.GPDD = window.GPDD || {};
 
   async function fetchHash(base) {
     const res = await fetch(base + HASH_SIZE, { credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) { const e = new Error(`HTTP ${res.status}`); e.status = res.status; throw e; }
     const blob = await res.blob();
     if (!blob.type.startsWith('image/')) throw new Error(`got ${blob.type || 'no'} content`);
     return hash.dhashBlob(blob);
@@ -63,7 +64,7 @@ window.GPDD = window.GPDD || {};
   } = {}) {
     const { api } = window.GPDD;
     const known = await store.knownIds();
-    const stats = { startedAt: Date.now(), pages: 0, fetched: 0, failed: 0, hashMs: 0 };
+    const stats = { startedAt: Date.now(), pages: 0, fetched: 0, failed: 0, throttled: 0, hashMs: 0 };
     let added = 0;
     let skipped = 0; // thumbnails that could not be fetched or hashed
     let stoppedEarly = false;
@@ -77,6 +78,30 @@ window.GPDD = window.GPDD || {};
         if (floor != null && newestTs > floor) pct = Math.min(100, Math.round(((newestTs - oldestTs) / (newestTs - floor)) * 100));
       }
       onProgress({ scanned: known.size, added, skipped, pct });
+    };
+
+    // Rate limiting shows as 429 (or 503) on the thumbnail host. The first one
+    // in a burst halves the number in flight and pauses every worker, doubling
+    // the pause on each further burst up to a minute. A long clean stretch
+    // grows the concurrency back a quarter at a time.
+    let allowed = IN_FLIGHT;
+    let pausedUntil = 0;
+    let backoffMs = 5000;
+    let clean = 0;
+    const throttled = (status) => {
+      if (Date.now() < pausedUntil) return; // already backing off for this burst
+      allowed = Math.max(MIN_IN_FLIGHT, allowed >> 1);
+      pausedUntil = Date.now() + backoffMs;
+      stats.throttled++;
+      onProgress({ log: `Google answered ${status}: pausing ${backoffMs / 1000}s, then ${allowed} at a time` });
+      backoffMs = Math.min(60000, backoffMs * 2);
+      clean = 0;
+    };
+    const succeeded = () => {
+      if (++clean < 2000 || allowed >= IN_FLIGHT) return;
+      allowed = Math.min(IN_FLIGHT, allowed + (allowed >> 2));
+      backoffMs = 5000;
+      clean = 0;
     };
 
     // The next listing request is in flight while this page's thumbnails are
@@ -97,14 +122,20 @@ window.GPDD = window.GPDD || {};
       const rows = [];
       let idx = 0;
       const t0 = performance.now();
-      await Promise.all(Array.from({ length: IN_FLIGHT }, async () => {
+      await Promise.all(Array.from({ length: IN_FLIGHT }, async (_, k) => {
         while (idx < wanted.length && !shouldStop()) {
+          if (k >= allowed) { await sleep(1000); continue; }
+          const wait = pausedUntil - Date.now();
+          if (wait > 0) { await sleep(wait); continue; }
           const it = wanted[idx++];
           let h = null;
           let ok = false;
-          for (let attempt = 0; attempt < 2 && !ok; attempt++) {
-            try { h = await fetchHash(it.base); ok = true; }
-            catch (e) { if (attempt === 0) await sleep(500); }
+          for (let attempt = 0, limited = 0; attempt < 2 && limited < 8 && !ok; ) {
+            try { h = await fetchHash(it.base); ok = true; succeeded(); }
+            catch (e) {
+              if (e.status === 429 || e.status === 503) { limited++; throttled(e.status); await sleep(Math.max(0, pausedUntil - Date.now())); }
+              else if (++attempt < 2) await sleep(500);
+            }
           }
           if (!ok) { skipped++; stats.failed++; continue; }
           stats.fetched++;

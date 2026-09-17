@@ -15,24 +15,21 @@ the photos.google.com UI. Everything below was verified against the live site.
 | Tile | `a[href*="/photo/"]` — `./photo/<id>` in the main library, `./documents/<album>/photo/<id>` in album and Screenshots views; id is the segment after `/photo/` |
 | Capture date | in the tile's `aria-label` (`"Photo – Portrait – 24 Aug 2025, 12:34:56"`) — free, no extra request |
 | Thumbnail | `background-image` on a `[data-latest-bg]` descendant, served from `photos.fife.usercontent.google.com` |
-| Rendering | stops entirely while the tab is hidden — no new tiles, no thumbnails |
-| Thumbnail pixels | **not readable by any download path.** `crossOrigin="anonymous"` loads a transparent placeholder with identical pixels for every photo (the host sends no `Access-Control-Allow-Origin`); without `crossOrigin` the canvas taints; and fetching the URL without session cookies returns a ~940KB HTML sign-in page with a 200 status |
+| Listing | the page's own timeline RPC (`lcxiM`) returns 500 items per request, newest first, with media key, dedup key, capture time, dimensions and a thumbnail base URL; a timestamp argument starts the listing at that date |
+| Thumbnail pixels | readable by a **credentialed** fetch from the content script (`credentials: "include"`, ~1.2KB at 32px). `crossOrigin="anonymous"` gets a transparent placeholder and a cookieless service-worker fetch gets a sign-in page, which is what the earlier "not readable" verdict tested |
 | Grid | virtualised — ~130 tiles live, ~108 dropped per 6000px of scroll |
 | Scroll container | a `c-wiz` in the main library, a plain `div[jsname]` in album views — found by walking up from a tile, not by tag |
 | Selection | per-tile `[role="checkbox"]`; date headers use the same role, labelled `"Select all …"` |
 | Deletion | the page's own `batchexecute` RPC (`XwAOJf`), which takes each photo's dedup key rather than the `/photo/<id>` media key; the media-info RPC (`VrseUb`) maps one to the other |
 | Input | **scripted clicks are ignored** — `.click()` and full synthetic pointer/mouse sequences both fail, including on the always-visible "Clear selection" button — which is why deletion talks to the RPC instead of the page |
 
-Because no download path works, nothing is downloaded: the service worker takes
-one `captureVisibleTab` screenshot per scroll step and crops each tile out of it,
-then hashes the crop (dHash, 64-bit). No network traffic, no CORS, no auth — and
-it hashes exactly what is on screen. The panel hides itself for the instant the
-screenshot is taken so it cannot be baked into a tile's hash.
-
-`captureVisibleTab` is the reason for the `<all_urls>` host permission: Chrome
-only allows it under `<all_urls>` or `activeTab`, and a permission for
-photos.google.com alone is refused. The content script still only ever runs on
-photos.google.com.
+Scanning never touches the grid: the library is listed through the same
+`batchexecute` RPC the page uses to fill its timeline, 500 items a request, and
+each item's thumbnail is fetched at 32px with the session cookies and hashed
+(dHash, 64-bit) in the content script. No scrolling, no screenshots, and the tab
+does not need to be visible. The server spends ~250–600ms resizing each
+thumbnail whatever the concurrency, so throughput is bounded by how many
+requests are in flight: ~150 photos/s at 128, or roughly 25 minutes for 200k.
 
 Deletion sends the same request Google Photos sends when you click "Move to
 bin", from the content script with the page's own session: up to 250 photos per

@@ -135,6 +135,7 @@ window.GPDD = window.GPDD || {};
         toMs: range.toMs,
         shouldStop: () => state.stop,
         onProgress: (p) => {
+          if (p.log) return ui.addLog(p.log);
           if (p.pct != null) ui.setBar(p.pct);
           ui.setStatus(`Scanning… ${p.scanned} photos hashed` + (p.skipped ? ` · ${p.skipped} thumbnails could not be fetched` : ''));
         },
