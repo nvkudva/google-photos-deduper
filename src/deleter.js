@@ -42,6 +42,19 @@ window.GPDD = window.GPDD || {};
     return true;
   }
 
+  // A confirm dialog only appears in some cases, so it is handled when it turns
+  // up rather than waited for.
+  function findConfirm() {
+    const dialog = document.querySelector('[role="alertdialog"],[role="dialog"]');
+    if (!dialog) return null;
+    const buttons = [...dialog.querySelectorAll('button,[role="button"]')];
+    const hit = buttons.find((b) => {
+      const text = `${b.textContent || ''} ${b.getAttribute('aria-label') || ''}`.trim();
+      return /move to bin|move to trash|^delete|^remove/i.test(text) && !/cancel|keep/i.test(text);
+    });
+    return hit ? { dialog, button: hit, label: (hit.textContent || '').trim().slice(0, 40) } : { dialog, button: null, label: null };
+  }
+
   // Which photo the detail view is actually showing. The carousel keeps the
   // previous and next photos mounted at full size too, so "a photo is on
   // screen" is not enough - and neither is "a Move to bin button exists",
