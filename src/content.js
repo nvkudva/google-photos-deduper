@@ -179,7 +179,11 @@ window.GPDD = window.GPDD || {};
               `Paused — this tab must stay visible for Google Photos to render. ${p.remaining} still to delete.`
             );
           }
-          ui.setStatus(`Deleted ${p.deleted} · ${p.remaining} to go`);
+          ui.setStatus(
+            `Deleted ${p.deleted}` +
+              (p.skipped ? ` · ${p.skipped} skipped` : '') +
+              ` · ${p.remaining} to go`
+          );
         },
       });
     } catch (e) {
@@ -198,14 +202,39 @@ window.GPDD = window.GPDD || {};
       } catch (e) {
         ui.setWarn(`The results could not be rebuilt: ${e.message || e}`);
       }
+      // Anything the run did not finish is re-selected, so clicking the button
+      // again picks up exactly those rather than starting from the top. A photo
+      // that was skipped is still in the store, so it is still in the rebuilt
+      // groups.
+      const pending = r ? [...r.skipped, ...r.remaining] : [];
+      if (pending.length) reselect(pending);
+
       // regroup() rewrites the status line, so the outcome goes on last.
       ui.setStatus(
-        failed
-          ? 'Delete stopped.'
-          : `Moved ${r.deleted} to the bin — recoverable there.` +
-              (r.notFound ? ` ${r.notFound} skipped — most likely already in the bin.` : '')
+        (failed ? `Delete stopped: ${failed}` : `Moved ${r.deleted} to the bin — recoverable there.`) +
+          (pending.length ? ` ${pending.length} left — click again to carry on.` : '')
       );
     }
+  }
+
+  // Put the given ids back in the selection after a regroup, expanding the
+  // visible page far enough to cover them: nothing may be queued for deletion
+  // that the user cannot scroll to and look at.
+  function reselect(ids) {
+    const want = new Set(ids);
+    let deepest = -1;
+    state.groups.forEach((g, i) => {
+      if (g.items.some((it) => want.has(it.id) && it.id !== g.keeperId)) deepest = i;
+    });
+    if (deepest < 0) return;
+    state.shown = Math.max(state.shown, deepest + 1);
+    state.toDelete = new Set();
+    state.groups.slice(0, state.shown).forEach((g) => {
+      g.items.forEach((it) => {
+        if (it.id !== g.keeperId && want.has(it.id)) state.toDelete.add(it.id);
+      });
+    });
+    refresh();
   }
 
   // Deliberately not window.confirm(): a content script's native dialog blocks

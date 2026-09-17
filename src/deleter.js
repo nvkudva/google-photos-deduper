@@ -104,6 +104,66 @@ window.GPDD = window.GPDD || {};
     return null;
   }
 
+  // One photo: open it, click Move to bin, wait for the app to react. Returns
+  // 'done', or why it did not, so the caller can decide about retrying.
+  async function attempt(id, shouldStop, log) {
+    if (!(await showPhoto(id, shouldStop))) return 'did not open';
+
+    const bin = visibleBin();
+    if (!bin) return 'no Move to bin button on screen';
+
+    // Confirmation comes from the network, not the page: /photo/<id> looks the
+    // same whether the photo is binned or not, the view does not move, and no
+    // snackbar is emitted.
+    //
+    // What this proves is that the app reacted to the click, not that the photo
+    // was trashed. The trash request itself has never been caught naming the
+    // photo: recording every batchexecute and extracting the media ids from
+    // each body finds only reads about it - VrseUb photo metadata, xPf9xf,
+    // yQelMe/CuHOKd, and the SXol3b thumbnail batch. nQy5td fires on the click
+    // and returns an encrypted Tink key, so the trash call probably carries an
+    // opaque token instead of the media key.
+    //
+    // So this is a liveness check, deliberately not a receipt. It is why
+    // failing it is a skip rather than an error, and why a photo already in the
+    // bin still passes. Deletions were verified the only way that is currently
+    // sound: looking the ids up in /trash afterwards.
+    //
+    // The rpcids are split because batchexecute batches several RPCs into one
+    // request, so the combined string "yQelMe,CuHOKd" looked new even though
+    // CuHOKd had been seen on its own - which is what made a read confirm a
+    // deletion.
+    const before = await bg('netLog', { id, since: 0 });
+    const seen = new Set(before.rows.flatMap((r) => r.rpcids.split(',')));
+    const clickedAt = Date.now();
+    if (!(await clickElement(bin))) return 'the button moved out of reach';
+
+    for (let i = 0; i < 25; i++) {
+      if (shouldStop()) return 'stopped';
+      await sleep(200);
+      // A confirm dialog only turns up in some cases; handle it if it does.
+      const c = findConfirm();
+      if (c && c.button) {
+        log(`confirm dialog: "${c.label}"`);
+        await clickElement(c.button);
+      }
+      const after = await bg('netLog', { id, since: clickedAt });
+      const hit = after.rows.find(
+        (r) => r.status === 200 && r.rpcids.split(',').some((x) => x && !seen.has(x))
+      );
+      if (hit) return 'done';
+    }
+    return 'no trash request followed the click';
+  }
+
+  // Attempts per photo. A photo that will not delete twice in a row will not
+  // delete on a third go either - the useful retries are the transient ones,
+  // a view that had not finished rendering or a toolbar mid-reflow.
+  const ATTEMPTS = 2;
+  // Consecutive failures that mean something is broken rather than unlucky.
+  // Without this a run works through the whole selection achieving nothing.
+  const GIVE_UP_AFTER = 5;
+
   async function run({
     targetIds, dryRun = true, onProgress = () => {}, shouldStop = () => false,
   }) {
@@ -111,14 +171,22 @@ window.GPDD = window.GPDD || {};
     const log = (m) => onProgress({ log: m });
     const home = location.pathname + location.search;
     const deleted = [];
+    const skipped = []; // { id, why } - offered back for a retry
     let wouldDelete = 0;
-    const missed = [];
-    let misses = 0;
+    let inARow = 0;
+    let stoppedEarly = false;
+
+    const report = () =>
+      onProgress({
+        deleted: deleted.length,
+        skipped: skipped.length,
+        remaining: targets.size,
+      });
 
     if (!dryRun) await bg('attach');
     try {
       for (const id of [...targets]) {
-        if (shouldStop()) break;
+        if (shouldStop()) { stoppedEarly = true; break; }
 
         // Same constraint as the scan: Google Photos stops rendering while the
         // tab is hidden, so there is nothing to click. Say so rather than
@@ -127,86 +195,47 @@ window.GPDD = window.GPDD || {};
           onProgress({ stalled: true, deleted: deleted.length, remaining: targets.size });
           await sleep(1500);
         }
-        if (shouldStop()) break;
+        if (shouldStop()) { stoppedEarly = true; break; }
 
-        if (!(await showPhoto(id, shouldStop))) {
-          missed.push(id);
-          continue;
-        }
         if (dryRun) {
-          wouldDelete++;
-          targets.delete(id);
-          continue;
-        }
-
-        const bin = visibleBin();
-        if (!bin) {
-          missed.push(id);
-          continue;
-        }
-
-        // Confirmation comes from the network, not the page: /photo/<id> looks
-        // the same whether the photo is binned or not, the view does not move,
-        // and no snackbar is emitted.
-        //
-        // What this proves is that the app reacted to the click, not that the
-        // photo was trashed. The trash request itself has never been caught
-        // naming the photo: recording every batchexecute and extracting the
-        // media ids from each body finds only reads about it - VrseUb photo
-        // metadata, xPf9xf, yQelMe/CuHOKd, and the SXol3b thumbnail batch. The
-        // likely reason is nQy5td, which fires on the click and returns an
-        // encrypted Tink key, so the trash call probably carries an opaque
-        // token instead of the media key.
-        //
-        // So this is a liveness check, deliberately not a receipt. It is why
-        // failing it is a skip rather than an error, and why a photo already in
-        // the bin still passes. Deletions were verified the only way that is
-        // currently sound: four photos looked up in /trash by id afterwards.
-        // Split the rpcids: batchexecute batches several RPCs into one request,
-        // so the combined string "yQelMe,CuHOKd" looked new even though CuHOKd
-        // had already been seen on its own - which is exactly what made a read
-        // confirm a deletion.
-        const before = await bg('netLog', { id, since: 0 });
-        const seen = new Set(before.rows.flatMap((r) => r.rpcids.split(',')));
-        const clickedAt = Date.now();
-        if (!(await clickElement(bin))) {
-          missed.push(id);
-          continue;
-        }
-
-        let confirmedBy = null;
-        for (let i = 0; i < 25 && !confirmedBy; i++) {
-          await sleep(200);
-          // A confirm dialog only turns up in some cases; handle it if it does.
-          const c = findConfirm();
-          if (c && c.button) {
-            log(`confirm dialog: "${c.label}"`);
-            await clickElement(c.button);
+          if (await showPhoto(id, shouldStop)) {
+            wouldDelete++;
+            targets.delete(id);
+          } else {
+            skipped.push({ id, why: 'did not open' });
           }
-          const after = await bg('netLog', { id, since: clickedAt });
-          const hit = after.rows.find(
-            (r) => r.status === 200 && r.rpcids.split(',').some((x) => x && !seen.has(x))
-          );
-          if (hit) confirmedBy = hit.rpcids;
+          continue;
         }
-        // A photo already in the bin is the ordinary case for a stale store row,
-        // and Google sends no trash request for one. That is a skip, not a
-        // failure - but a run where nothing is landing should not grind through
-        // the whole selection, so give up after a few in a row.
-        if (!confirmedBy) {
-          missed.push(id);
-          if (++misses >= 5) {
-            log(`${misses} in a row produced no trash request - stopping`);
+
+        let why = null;
+        for (let tryNo = 1; tryNo <= ATTEMPTS; tryNo++) {
+          why = await attempt(id, shouldStop, log);
+          if (why === 'done' || why === 'stopped') break;
+          if (tryNo < ATTEMPTS) {
+            log(`${id.slice(-8)}: ${why} - retrying`);
+            await sleep(600);
+          }
+        }
+
+        if (why === 'stopped') { stoppedEarly = true; break; }
+
+        if (why === 'done') {
+          inARow = 0;
+          deleted.push(id);
+          targets.delete(id);
+          // Only now, so a run that dies leaves the store describing exactly
+          // what is still in the library and the next run picks up the rest.
+          await store.remove([id]);
+        } else {
+          skipped.push({ id, why });
+          if (++inARow >= GIVE_UP_AFTER) {
+            log(`${inARow} in a row failed (${why}) - stopping rather than working through the rest`);
+            stoppedEarly = true;
+            report();
             break;
           }
-          continue;
         }
-        misses = 0;
-
-        deleted.push(id);
-        targets.delete(id);
-        await store.remove([id]);
-        onProgress({ deleted: deleted.length, remaining: targets.size });
+        report();
       }
     } finally {
       // Put the user back where they started, whatever happened.
@@ -215,8 +244,17 @@ window.GPDD = window.GPDD || {};
       if (!dryRun) await bg('detach').catch(() => {});
     }
 
-    if (missed.length) log(`${missed.length} skipped - no trash request followed the click, so they were most likely already in the bin`);
-    return { deleted: deleted.length, wouldDelete, notFound: targets.size };
+    for (const s of skipped.slice(0, 5)) log(`skipped ${s.id.slice(-8)}: ${s.why}`);
+    if (skipped.length > 5) log(`...and ${skipped.length - 5} more skipped`);
+
+    return {
+      deleted: deleted.length,
+      wouldDelete,
+      skipped: skipped.map((s) => s.id),
+      // Never attempted, because the run stopped: still selected, still there.
+      remaining: [...targets].filter((id) => !skipped.some((s) => s.id === id)),
+      stoppedEarly,
+    };
   }
 
   window.GPDD.deleter = { run };
