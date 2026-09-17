@@ -116,6 +116,8 @@ window.GPDD = window.GPDD || {};
 
     let added = 0;
     let skipped = 0; // crops rejected as flat - see hash.degenerate
+    // Wall-clock split, so throughput is a measurement rather than a guess.
+    const stats = { startedAt: Date.now(), steps: 0, captureMs: 0, settleMs: 0, scrollMs: 0 };
     let sanityChecked = false;
     let idleRounds = 0;
     let lastTop = -1;
@@ -143,7 +145,9 @@ window.GPDD = window.GPDD || {};
         const r = a.getBoundingClientRect();
         return { x: r.left, y: r.top, w: r.width, h: r.height };
       });
+      const capturedAt = performance.now();
       const res = await hash.hashRects(rects);
+      stats.captureMs += performance.now() - capturedAt;
       // A backgrounded tab cannot be captured. That is a pause, not a failure.
       if (res.inactive) return -1;
       const hashes = res.hashes;
@@ -242,14 +246,19 @@ window.GPDD = window.GPDD || {};
       lastTop = scroller.scrollTop;
 
       scroller.scrollTop += Math.round(scroller.clientHeight * 0.6);
+      stats.steps++;
       // Google Photos renders on rAF and fetches thumbnails over the network;
       // let the new rows actually paint before capturing them.
+      const paintAt = performance.now();
       await sleep(250);
       await settle(4000);
+      stats.settleMs += performance.now() - paintAt;
     }
 
-    await store.setMeta('lastScan', { at: Date.now(), scanned: known.size, skipped });
-    return { scanned: known.size, added, skipped };
+    stats.elapsedMs = Date.now() - stats.startedAt;
+    stats.perSecond = stats.elapsedMs ? +((added / stats.elapsedMs) * 1000).toFixed(2) : 0;
+    await store.setMeta('lastScan', { at: Date.now(), scanned: known.size, skipped, stats });
+    return { scanned: known.size, added, skipped, stats };
   }
 
   window.GPDD.scanner = { scan };
