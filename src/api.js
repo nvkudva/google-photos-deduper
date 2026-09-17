@@ -24,6 +24,7 @@ window.GPDD = window.GPDD || {};
 
   const RPC_INFO = 'VrseUb'; // [mediaKey] -> [[mediaKey, ..., dedupKey at 3, ...]]
   const RPC_TRASH = 'XwAOJf'; // [null, 1, dedupKeys, 3] bins; [null, 3, dedupKeys, 2] restores
+  const RPC_BIN = 'zy0IHe'; // [pageId] -> [[[mediaKey, ...], ...], nextPageId]
   const INFO_BATCH = 50; // 30 measured at 497ms in one request
   const TRASH_BATCH = 250;
   const MEDIA_KEY = /AF1Qip[A-Za-z0-9_-]{10,}/g;
@@ -84,6 +85,20 @@ window.GPDD = window.GPDD || {};
     return map;
   }
 
+  // Media keys of everything currently in the bin. The lookup answers error 5
+  // for a binned photo, and the store can hold such photos: the page-driving
+  // deleter this replaced binned some without ever confirming them.
+  async function binned() {
+    const keys = new Set();
+    let page = null;
+    do {
+      const [p] = await batch(RPC_BIN, [[page]]);
+      ((p && p[0]) || []).forEach((it) => { if (it && it[0]) keys.add(it[0]); });
+      page = (p && p[1]) || null;
+    } while (page);
+    return keys;
+  }
+
   // A chunk is retried once after a pause: the useful failures are a dropped
   // connection or a momentary 5xx, and a second try a few seconds later is
   // what the page itself does.
@@ -102,6 +117,8 @@ window.GPDD = window.GPDD || {};
     const targets = [...new Set(targetIds)];
     const deleted = [];
     const skipped = [];
+    const alreadyBinned = [];
+    let inBin = null; // fetched once, only if a lookup fails
     let next = 0;
     let stoppedEarly = false;
     const report = () =>
@@ -118,10 +135,28 @@ window.GPDD = window.GPDD || {};
         let m;
         try { m = await twice(() => dedupKeys(part), log, 'looking up photos'); }
         catch (e) { log(`${part.length} skipped: lookup failed (${e.message || e})`); part.forEach((id) => skipped.push(id)); continue; }
-        part.forEach((id) => { if (m.has(id)) keys.set(id, m.get(id)); else skipped.push(id); });
+        part.forEach((id) => { if (m.has(id)) keys.set(id, m.get(id)); });
       }
-      const unresolved = chunk.length - keys.size;
-      if (unresolved) log(`${unresolved} skipped: Google returned no key for them`);
+      // A photo the lookup does not know is either already in the bin, which
+      // is the outcome wanted, or something else, which is a skip.
+      const unknown = chunk.filter((id) => !keys.has(id) && !skipped.includes(id));
+      if (unknown.length) {
+        try {
+          if (!inBin) inBin = await twice(binned, log, 'reading the bin');
+          const there = unknown.filter((id) => inBin.has(id));
+          if (there.length) {
+            await store.remove(there);
+            there.forEach((id) => alreadyBinned.push(id));
+            log(`${there.length} already in the bin`);
+          }
+          const rest = unknown.filter((id) => !inBin.has(id));
+          if (rest.length) log(`${rest.length} skipped: Google returned no key for them`);
+          rest.forEach((id) => skipped.push(id));
+        } catch (e) {
+          log(`${unknown.length} skipped: lookup failed and the bin could not be read (${e.message || e})`);
+          unknown.forEach((id) => skipped.push(id));
+        }
+      }
       if (!keys.size) { report(); continue; }
 
       const ids = [...keys.keys()];
@@ -148,14 +183,15 @@ window.GPDD = window.GPDD || {};
       report();
     }
 
-    const finished = new Set([...deleted, ...skipped]);
+    const finished = new Set([...deleted, ...alreadyBinned, ...skipped]);
     return {
       deleted: deleted.length,
+      alreadyBinned: alreadyBinned.length,
       skipped,
       remaining: targets.filter((id) => !finished.has(id)),
       stoppedEarly,
     };
   }
 
-  window.GPDD.api = { run, batch, dedupKeys, RPC_TRASH };
+  window.GPDD.api = { run, batch, dedupKeys, binned, RPC_TRASH };
 })();

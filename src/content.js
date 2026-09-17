@@ -201,6 +201,7 @@ window.GPDD = window.GPDD || {};
       // regroup() rewrites the status line, so the outcome goes on last.
       ui.setStatus(
         (failed ? `Delete stopped: ${failed}` : `Moved ${r.deleted} to the bin — recoverable there.`) +
+          (r && r.alreadyBinned ? ` ${r.alreadyBinned} were already there.` : '') +
           (pending.length ? ` ${pending.length} left — click again to carry on.` : '')
       );
     }
