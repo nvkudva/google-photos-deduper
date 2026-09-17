@@ -1,7 +1,12 @@
-# Google Photos DeDuper
+# Photo DeDuper
 
 A Chrome extension that scans the Google Photos library of whoever is signed in,
 finds visually duplicate photos, and moves the ones you choose to the bin.
+
+Independent: not made by, endorsed by, or affiliated with Google. Named "Google
+Photos DeDuper" until the store listing was prepared — the store forbids a name
+that implies affiliation. Listing copy is in [STORE.md](STORE.md); build the
+upload zip with `tools/package.sh`.
 
 ## Why it works this way
 

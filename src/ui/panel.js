@@ -8,7 +8,7 @@ window.GPDD.ui = window.GPDD.ui || {};
 
   const HTML = `
 <div class="panel">
-  <div class="hd"><b>Google Photos DeDuper</b><button class="max" title="Maximise"></button><button class="min" title="Minimise"></button></div>
+  <div class="hd"><b>Photo DeDuper</b><button class="max" title="Maximise"></button><button class="min" title="Minimise"></button></div>
   <div class="body">
     <div class="controls">
     <div class="warn" style="display:none"></div>

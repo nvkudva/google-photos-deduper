@@ -16,15 +16,6 @@ window.GPDD = window.GPDD || {};
     if (msg && msg.type === 'togglePanel') ui.toggle();
   });
 
-  // Development convenience: unpacked extensions only pick up edited files after
-  // a reload on chrome://extensions, which nothing on the page can reach. This
-  // lets the page ask for that reload instead:
-  //   document.dispatchEvent(new Event('gpdd-reload'))
-  // It only restarts this extension - it exposes no data and no other action.
-  document.addEventListener('gpdd-reload', () => {
-    chrome.runtime.sendMessage({ type: 'reloadExtension' }, () => void chrome.runtime.lastError);
-  });
-
   // The content script runs before the grid has rendered, so the check waits for
   // tiles to appear rather than reporting an empty page as a broken one.
   refreshHistogram();
