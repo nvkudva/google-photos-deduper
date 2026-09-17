@@ -182,7 +182,12 @@ window.GPDD = window.GPDD || {};
       });
       await regroup();
       // regroup() rewrites the status line, so the outcome goes on last.
-      ui.setStatus(`Moved ${r.deleted} to the bin — recoverable there.` + (r.notFound ? ` ${r.notFound} were not reachable.` : ''));
+      // A skip is not a failure: the usual cause is a store row for a photo
+      // that is already in the bin, which sends no trash request at all.
+      ui.setStatus(
+        `Moved ${r.deleted} to the bin — recoverable there.` +
+          (r.notFound ? ` ${r.notFound} skipped — most likely already in the bin.` : '')
+      );
     } catch (e) {
       ui.setWarn(String(e.message || e));
       ui.setStatus('Delete stopped.');
