@@ -165,8 +165,10 @@ window.GPDD = window.GPDD || {};
     // and to stay clear of the toolbar it clicks.
     ui.setScanning(true);
     ui.setStatus('Deleting…');
+    let r = null;
+    let failed = null;
     try {
-      const r = await deleter.run({
+      r = await deleter.run({
         targetIds: [...state.toDelete],
         dryRun: false,
         shouldStop: () => state.stop,
@@ -180,21 +182,29 @@ window.GPDD = window.GPDD || {};
           ui.setStatus(`Deleted ${p.deleted} · ${p.remaining} to go`);
         },
       });
-      await regroup();
-      // regroup() rewrites the status line, so the outcome goes on last.
-      // A skip is not a failure: the usual cause is a store row for a photo
-      // that is already in the bin, which sends no trash request at all.
-      ui.setStatus(
-        `Moved ${r.deleted} to the bin — recoverable there.` +
-          (r.notFound ? ` ${r.notFound} skipped — most likely already in the bin.` : '')
-      );
     } catch (e) {
-      ui.setWarn(String(e.message || e));
-      ui.setStatus('Delete stopped.');
+      failed = String(e.message || e);
+      ui.setWarn(failed);
     } finally {
       state.running = false;
+      ui.scan.disabled = false;
+      ui.stop.disabled = true;
       ui.setScanning(false);
-      ui.scan.disabled = false; ui.stop.disabled = true; refresh();
+      // Every confirmed deletion is already out of the store, so the cards have
+      // to be rebuilt even when the run ended badly or was stopped part way -
+      // otherwise they go on offering photos that are now in the bin.
+      try {
+        await regroup();
+      } catch (e) {
+        ui.setWarn(`The results could not be rebuilt: ${e.message || e}`);
+      }
+      // regroup() rewrites the status line, so the outcome goes on last.
+      ui.setStatus(
+        failed
+          ? 'Delete stopped.'
+          : `Moved ${r.deleted} to the bin — recoverable there.` +
+              (r.notFound ? ` ${r.notFound} skipped — most likely already in the bin.` : '')
+      );
     }
   }
 
