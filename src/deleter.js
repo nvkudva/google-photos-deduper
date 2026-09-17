@@ -4,9 +4,16 @@
 // therefore has to come from the DevTools protocol, which is why the extension
 // asks for the "debugger" permission.
 //
-// Deletion runs one screenful at a time rather than selecting the whole library
-// and trashing it in one go: with the DOM recycling tiles, selection state for
-// rows that no longer exist is not something to bet a delete on.
+// Deletion opens each photo's own detail view rather than hunting for its tile
+// in the grid. The grid walk that came before had to scroll past the whole
+// library to find scattered targets: measured at 166s to cover 334k of 2.58M
+// pixels, about 19 minutes a pass no matter how many photos were being deleted.
+// A detail view is reached directly from the photo id, so the cost is per
+// target instead of per library, and there is no selection to get out of sync.
+//
+// The SPA routes off history state: replaceState to /photo/<id> plus a popstate
+// puts that photo on screen in 41-433ms without a page load, and without
+// growing the history the user's back button walks.
 window.GPDD = window.GPDD || {};
 
 (() => {
@@ -25,204 +32,142 @@ window.GPDD = window.GPDD || {};
   const clickAt = (rect) =>
     bg('cdpClick', { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) });
 
-  // The overlay is the topmost element on the page, so a CDP click at a point
-  // it covers is delivered to the overlay, not to the tile underneath. Verified
-  // with document.elementFromPoint: 7 of 38 otherwise-clickable tiles resolved
-  // to the panel host. A skipped tile is not lost - the walk scrolls by 0.75 of
-  // a viewport, so anything under the bar at the bottom of one step is in the
-  // upper part of the next one.
-  let blocked = () => null;
-  const occluded = (r) => {
-    const b = blocked();
-    return !!b && r.right > b.left && r.left < b.right && r.bottom > b.top && r.top < b.bottom;
-  };
-
-  // `kind` picks the guard: tiles must clear the header, buttons must not.
-  // Only tiles are tested against the overlay; the toolbar and dialog buttons
-  // it would also match are Google's own and have to stay clickable.
-  async function clickElement(el, kind = 'tile') {
-    const rect = kind === 'button' ? sel.buttonRect(el) : sel.safeRect(el); // re-read immediately before dispatch
+  // Nothing in the grid is clicked any more, so the overlay cannot swallow a
+  // click the way it did when tiles were the target: the toolbar button this
+  // dispatches to sits at the top of the screen, clear of the panel.
+  async function clickElement(el) {
+    const rect = sel.buttonRect(el); // re-read immediately before dispatch
     if (!rect) return false;
-    if (kind !== 'button' && occluded(rect)) return false;
     await clickAt(rect);
     return true;
   }
 
-  // Google Photos renders more than one checkbox node per tile, so counting
-  // elements over-reports. What matters is how many distinct photos are
-  // selected, which is what the "Move to bin" click is about to act on.
-  const checkedCount = () => {
-    const ids = new Set();
-    let loose = 0;
-    for (const c of document.querySelectorAll(`${sel.S.checkbox}[aria-checked="true"]`)) {
-      if (sel.isSelectAll(c)) continue;
-      const w = c.closest(sel.S.wrapper);
-      const a = w && w.querySelector(sel.S.tile);
-      const t = a && sel.readTile(a);
-      if (t) ids.add(t.id);
-      else loose++;
+  // Which photo the detail view is actually showing. The carousel keeps the
+  // previous and next photos mounted at full size too, so "a photo is on
+  // screen" is not enough - and neither is "a Move to bin button exists",
+  // which survives the navigation unchanged (measured: it reported ready in
+  // 1ms, before the view had switched at all). The element carrying
+  // data-media-key that covers the viewport centre is the current one:
+  // verified over six photos, correct every time, 0-433ms after the popstate.
+  const centreKey = () => {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    let best = null;
+    for (const el of document.querySelectorAll('[data-media-key]')) {
+      const r = el.getBoundingClientRect();
+      if (r.width < 300 || r.height < 300) continue;
+      if (r.left > cx || r.right < cx || r.top > cy || r.bottom < cy) continue;
+      const area = r.width * r.height;
+      // Smallest box enclosing the centre - the containers nest.
+      if (!best || area < best.area) best = { key: el.getAttribute('data-media-key'), area };
     }
-    return ids.size + loose;
+    return best && best.key;
   };
 
-  function findConfirm() {
-    const dialog = document.querySelector('[role="alertdialog"],[role="dialog"]');
-    if (!dialog) return null;
-    const buttons = [...dialog.querySelectorAll('button,[role="button"]')];
-    const hit = buttons.find((b) => {
-      const text = `${b.textContent || ''} ${b.getAttribute('aria-label') || ''}`.trim();
-      return /move to bin|move to trash|^delete|^remove/i.test(text) && !/cancel|keep/i.test(text);
-    });
-    return hit ? { dialog, button: hit, label: (hit.textContent || '').trim().slice(0, 40) } : { dialog, button: null, label: null };
-  }
+  const navigate = (id) => {
+    history.replaceState({}, '', '/photo/' + id);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
 
-  async function trashSelection(log) {
-    const bin = document.querySelector(sel.S.moveToBin);
-    if (!bin) throw new Error('"Move to bin" button not found while items were selected');
-    if (!(await clickElement(bin, 'button'))) throw new Error('"Move to bin" button was not in a clickable position');
-
-    // Google Photos usually trashes straight away and shows a "Moved to the
-    // bin" snackbar with Undo; a confirm dialog only appears in some cases. So
-    // the dialog is handled when it turns up, and success is judged by the
-    // selection emptying - not by the dialog, and not by the toolbar button
-    // disappearing, which it does not reliably do.
-    let confirmed = false;
-    for (let i = 0; i < 20; i++) {
-      await sleep(400);
-      if (!confirmed) {
-        const c = findConfirm();
-        if (c && c.button) {
-          log(`confirm dialog: "${c.label}"`);
-          await clickElement(c.button, 'button');
-          confirmed = true;
-          continue;
-        }
-      }
-      if (checkedCount() === 0) return true;
+  // This is an identity check, not a change check: it asks whether the photo on
+  // screen is the one we mean to bin, so landing on it instantly is a pass, and
+  // a view that never commits is a skip rather than a click on someone else.
+  async function showPhoto(id, shouldStop) {
+    navigate(id);
+    for (let waited = 0; waited < 8000; waited += 40) {
+      if (shouldStop()) return false;
+      if (centreKey() === id) return true;
+      await sleep(40);
     }
-    throw new Error('the selection never cleared after clicking "Move to bin" - stopped');
+    return false;
   }
 
-  async function clearSelection() {
-    const btn = document.querySelector(sel.S.clearSelection);
-    if (btn) await clickElement(btn, 'button');
+  // More than one node carries this aria-label and querySelector returns a
+  // zero-sized hidden one, so take the first that is really on screen.
+  function visibleBin() {
+    for (const b of document.querySelectorAll(sel.S.moveToBin)) {
+      if (sel.buttonRect(b)) return b;
+    }
+    return null;
   }
 
   async function run({
-    targetIds, dryRun = true, batchSize = 30,
-    onProgress = () => {}, shouldStop = () => false, blockedRect = () => null,
+    targetIds, dryRun = true, onProgress = () => {}, shouldStop = () => false,
   }) {
-    blocked = blockedRect;
     const targets = new Set(targetIds);
     const log = (m) => onProgress({ log: m });
-
-    // The grid renders lazily, and not at all while the tab is hidden, so give
-    // it a chance to appear instead of failing on an empty page.
-    let scroller = sel.findScroller();
-    for (let i = 0; i < 20 && (!scroller || !sel.liveTiles().length); i++) {
-      await sleep(500);
-      scroller = sel.findScroller();
-    }
-    if (!scroller) throw new Error('the photo grid has not loaded - scroll the page once and try again');
+    const home = location.pathname + location.search;
     const deleted = [];
     let wouldDelete = 0;
+    const missed = [];
 
     if (!dryRun) await bg('attach');
     try {
-      scroller.scrollTop = 0;
-      await sleep(1200);
+      for (const id of [...targets]) {
+        if (shouldStop()) break;
 
-      let idle = 0;
-      let lastTop = -1;
-      let seen = 0;
-      let rounds = 0;
-      while (targets.size && !shouldStop()) {
         // Same constraint as the scan: Google Photos stops rendering while the
         // tab is hidden, so there is nothing to click. Say so rather than
         // sitting on "Deleting..." while nothing happens.
-        if (document.hidden) {
+        while (document.hidden && !shouldStop()) {
           onProgress({ stalled: true, deleted: deleted.length, remaining: targets.size });
           await sleep(1500);
+        }
+        if (shouldStop()) break;
+
+        if (!(await showPhoto(id, shouldStop))) {
+          missed.push(id);
+          continue;
+        }
+        if (dryRun) {
+          wouldDelete++;
+          targets.delete(id);
           continue;
         }
 
-        seen += sel.liveTiles().length;
-        rounds++;
-        const here = sel.liveTiles()
-          .map((a) => ({ a, t: sel.readTile(a) }))
-          .filter((x) => x.t && targets.has(x.t.id))
-          .slice(0, batchSize);
-
-        if (here.length) {
-          if (dryRun) {
-            wouldDelete += here.length;
-            here.forEach((x) => targets.delete(x.t.id));
-          } else {
-            const picked = [];
-            for (const x of here) {
-              const cb = sel.tileCheckbox(x.a);
-              if (!cb || cb.getAttribute('aria-checked') === 'true') continue;
-              const before = checkedCount();
-              if (!(await clickElement(cb))) continue;
-              // The first selection opens Google's own selection toolbar, which
-              // pushes the grid down - the next click then lands on whatever
-              // moved into those coordinates. Wait longer for that first one,
-              // and confirm each click actually took before counting it, so a
-              // missed click is retried rather than tripping the mismatch guard.
-              await sleep(picked.length === 0 ? 600 : 160);
-              if (checkedCount() === before) {
-                const again = sel.tileCheckbox(x.a);
-                if (again && (await clickElement(again))) await sleep(240);
-              }
-              if (checkedCount() > before) picked.push(x.t.id);
-            }
-            const n = checkedCount();
-            // Nothing of ours got selected, but something is checked - a click
-            // that landed late, or a selection left over from a previous round.
-            // Clear it here: carried into the next round it inflates that
-            // round's count and trips the mismatch guard below.
-            if (!picked.length && n > 0) await clearSelection();
-            if (picked.length && n > 0) {
-              if (n !== picked.length) {
-                log(`selection mismatch: clicked ${picked.length}, ${n} checked - stopping`);
-                await clearSelection();
-                break;
-              }
-              await trashSelection(log);
-              deleted.push(...picked);
-              picked.forEach((id) => targets.delete(id));
-              await store.remove(picked);
-              onProgress({ deleted: deleted.length, remaining: targets.size });
-              await sleep(900);
-              continue; // the grid reflows after a delete; re-read from here
-            }
-          }
+        const bin = visibleBin();
+        if (!bin || !(await clickElement(bin))) {
+          missed.push(id);
+          continue;
         }
 
-        // Google Photos grows scrollHeight as it renders, so early on the
-        // viewport really is at "the bottom" of what exists so far. Judging the
-        // end by that alone stopped a delete run 25k pixels into a 2.5M pixel
-        // library and reported every target as unreachable. The end is only the
-        // end when scrolling has also stopped moving, which is what the scan
-        // already required.
-        const atBottom = scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 4;
-        if (atBottom && scroller.scrollTop === lastTop) {
-          if (++idle >= 3) {
-            log(`reached the end at ${Math.round(scroller.scrollTop)} of ${scroller.scrollHeight}px`);
-            break;
+        // Google Photos usually trashes straight away; a confirm dialog only
+        // turns up in some cases, so it is handled when it appears. Success is
+        // the photo leaving the screen - not the dialog, and not the button,
+        // which is shared with the next photo the carousel slides in.
+        let confirmed = false;
+        let gone = false;
+        for (let i = 0; i < 25 && !gone; i++) {
+          await sleep(200);
+          if (!confirmed) {
+            const c = findConfirm();
+            if (c && c.button) {
+              log(`confirm dialog: "${c.label}"`);
+              await clickElement(c.button);
+              confirmed = true;
+              continue;
+            }
           }
-        } else {
-          idle = 0;
+          if (centreKey() !== id) gone = true;
         }
-        lastTop = scroller.scrollTop;
-        scroller.scrollTop += Math.round(scroller.clientHeight * 0.75);
-        await sleep(500);
+        if (!gone) {
+          log(`${id.slice(-8)} did not leave the screen after "Move to bin" - stopping`);
+          break;
+        }
+
+        deleted.push(id);
+        targets.delete(id);
+        await store.remove([id]);
+        onProgress({ deleted: deleted.length, remaining: targets.size });
       }
     } finally {
+      // Put the user back where they started, whatever happened.
+      history.replaceState({}, '', home);
+      window.dispatchEvent(new PopStateEvent('popstate'));
       if (!dryRun) await bg('detach').catch(() => {});
     }
 
-    if (targets.size) log(`${rounds} rounds, ${seen} tiles inspected, ${targets.size} targets never seen`);
+    if (missed.length) log(`${missed.length} could not be opened - they may already be gone`);
     return { deleted: deleted.length, wouldDelete, notFound: targets.size };
   }
 

@@ -160,9 +160,9 @@ window.GPDD = window.GPDD || {};
     state.running = true; state.stop = false;
     ui.scan.disabled = true; ui.stop.disabled = false; refresh();
     ui.setWarn('');
-    // Same reason as the scan: the panel is the topmost element on the page, so
-    // a click aimed at a tile underneath it is delivered to the panel instead.
-    // Step aside for the compact bar, and tell the deleter what that bar covers.
+    // The deleter drives Google's own photo view, so the panel steps aside for
+    // the compact bar the scan already uses - both to keep the photo visible
+    // and to stay clear of the toolbar it clicks.
     ui.setScanning(true);
     ui.setStatus('Deleting…');
     try {
@@ -170,7 +170,6 @@ window.GPDD = window.GPDD || {};
         targetIds: [...state.toDelete],
         dryRun: false,
         shouldStop: () => state.stop,
-        blockedRect: () => ui.blockedRect(),
         onProgress: (p) => {
           if (p.log) return ui.addLog(p.log);
           if (p.stalled) {
