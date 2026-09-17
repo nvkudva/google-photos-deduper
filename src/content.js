@@ -23,6 +23,8 @@ window.GPDD = window.GPDD || {};
 
   // The content script runs before the grid has rendered, so the check waits for
   // tiles to appear rather than reporting an empty page as a broken one.
+  refreshHistogram();
+
   (async () => {
     for (let i = 0; i < 30; i++) {
       if (sel.liveTiles().length) break;
@@ -42,8 +44,15 @@ window.GPDD = window.GPDD || {};
     ui.del.textContent = n ? `Move ${n} to bin` : 'Move selected to bin';
   }
 
+  // The sparkline behind the range scrubber is drawn from whatever has already
+  // been scanned, so it is empty on a first run and fills in from then on.
+  async function refreshHistogram() {
+    ui.range.setHistogram(await store.allItems());
+  }
+
   async function regroup() {
     const items = await store.allItems();
+    ui.range.setHistogram(items);
     state.groups = grouping.group(items, {
       similarity: Number(ui.sim.value),
       includeVideos: ui.vid.checked,
@@ -70,10 +79,16 @@ window.GPDD = window.GPDD || {};
     state.running = true; state.stop = false;
     ui.scan.disabled = true; ui.stop.disabled = false; refresh();
     ui.setWarn('');
-    ui.setStatus('Scanning… keep this tab visible; Google Photos stops rendering when it is hidden.');
+    const range = ui.range.get();
+    ui.setStatus(
+      (range.full ? 'Scanning…' : `Scanning ${range.label}…`) +
+        ' keep this tab visible; Google Photos stops rendering when it is hidden.'
+    );
     try {
       const res = await scanner.scan({
         maxItems: Number(ui.cap.value) || Infinity,
+        fromMs: range.fromMs,
+        toMs: range.toMs,
         shouldStop: () => state.stop,
         // The panel is hidden for the instant the screenshot is taken, so it
         // cannot end up cropped into a tile's hash.
@@ -83,7 +98,8 @@ window.GPDD = window.GPDD || {};
         },
         onProgress: (p) => {
           if (p.stalled) return ui.setStatus('Paused — this tab must stay visible for Google Photos to render.');
-          ui.setBar(p.pct || 0);
+          if (p.seeking) return ui.setStatus(`Skipping ahead to ${range.label}…`);
+          if (p.pct != null) ui.setBar(p.pct);
           ui.setStatus(`Scanning… ${p.scanned} photos hashed` + (p.skipped ? ` · ${p.skipped} blank crops retried` : ''));
         },
       });
@@ -113,6 +129,7 @@ window.GPDD = window.GPDD || {};
     await store.clear();
     state.groups = []; state.toDelete = new Set();
     ui.setBar(0); ui.setStatus('Cleared. Nothing in Google Photos was changed.');
+    await refreshHistogram();
     refresh();
   };
 

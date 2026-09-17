@@ -18,15 +18,32 @@ window.GPDD = window.GPDD || {};
     shouldStop = () => false,
     blockedRect = () => null,
     hideChrome = async (fn) => fn(),
+    fromMs = null, // inclusive, oldest end of the range
+    toMs = null,   // exclusive, newest end of the range
   } = {}) {
     const problems = sel.selfCheck();
     if (problems.length) throw new Error('Google Photos UI changed: ' + problems.join('; '));
 
     const scroller = sel.findScroller();
 
+    const ranged = fromMs != null || toMs != null;
+    const inRange = (ts) =>
+      !ranged || (ts != null && (fromMs == null || ts >= fromMs) && (toMs == null || ts < toMs));
+
+    // The main library grid is strictly newest-first, which is what lets a
+    // ranged scan skip ahead and stop early. Album views are not, so there the
+    // range is only a filter and the whole album still gets walked.
+    const ordered = !document.querySelector('a[href*="/documents/"]');
+
+    const tileTimes = () =>
+      sel.liveTiles().map((a) => { const t = sel.readTile(a); return t ? t.ts : null; }).filter(Boolean);
+
     // Drop rows whose hash came from a flat crop, so this pass hashes those
-    // photos properly instead of leaving them permanently unmatched.
-    const poisoned = (await store.allItems()).filter((i) => hash.degenerate(i.hash)).map((i) => i.id);
+    // photos properly instead of leaving them permanently unmatched. Only
+    // inside the range - this run will never revisit anything outside it.
+    const poisoned = (await store.allItems())
+      .filter((i) => hash.degenerate(i.hash) && inRange(i.ts))
+      .map((i) => i.id);
     if (poisoned.length) await store.remove(poisoned);
 
     const known = await store.knownIds();
@@ -37,11 +54,15 @@ window.GPDD = window.GPDD || {};
     let sanityChecked = false;
     let idleRounds = 0;
     let lastTop = -1;
+    // Skip forward, without hashing, until the newest end of the range is on
+    // screen; then stop once the grid has run older than the far end.
+    let seeking = ranged && ordered && toMs != null;
+    let pastRounds = 0;
 
     const harvest = async () => {
       const fresh = sel.liveTiles().filter((a) => {
         const t = sel.readTile(a);
-        return t && !known.has(t.id) && !seenThisRun.has(t.id);
+        return t && inRange(t.ts) && !known.has(t.id) && !seenThisRun.has(t.id);
       });
       if (!fresh.length) return 0;
 
@@ -98,6 +119,23 @@ window.GPDD = window.GPDD || {};
         continue;
       }
 
+      if (seeking) {
+        const ts = tileTimes();
+        const atEnd = scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 4;
+        // Leave the skip as soon as the boundary row is anywhere on screen, so
+        // hashing starts a screenful early rather than exactly on the edge -
+        // a tile straddling the viewport edge is rejected by croppable().
+        if (!ts.length || Math.min(...ts) < toMs || (atEnd && scroller.scrollTop === lastTop)) {
+          seeking = false;
+        } else {
+          onProgress({ seeking: true, scanned: known.size, added });
+          lastTop = scroller.scrollTop;
+          scroller.scrollTop += scroller.clientHeight;
+          await sleep(300);
+          continue;
+        }
+      }
+
       if ((await harvest()) === -1) {
         onProgress({ stalled: true, scanned: known.size, added });
         await sleep(1500);
@@ -107,10 +145,23 @@ window.GPDD = window.GPDD || {};
         scanned: known.size,
         added,
         skipped,
-        pct: Math.min(100, Math.round((scroller.scrollTop / Math.max(1, scroller.scrollHeight - scroller.clientHeight)) * 100)),
+        // Scroll position is meaningless as progress for a ranged scan: a
+        // 2016-only pass would finish at 30%.
+        pct: ranged ? null : Math.min(100, Math.round((scroller.scrollTop / Math.max(1, scroller.scrollHeight - scroller.clientHeight)) * 100)),
       });
 
-      if (known.size >= maxItems) break;
+      // The cap is per run. known.size counts the whole store, so comparing
+      // against it would end a second scan before it started.
+      if (added >= maxItems) break;
+
+      if (ordered && fromMs != null) {
+        const ts = tileTimes();
+        if (ts.length && Math.max(...ts) < fromMs) {
+          if (++pastRounds >= 3) break;
+        } else {
+          pastRounds = 0;
+        }
+      }
 
       const atBottom = scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 4;
       if (atBottom && scroller.scrollTop === lastTop) {
