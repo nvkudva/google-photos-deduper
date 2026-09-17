@@ -1,264 +1,136 @@
-// Virtualisation-aware harvester.
-// Measured: ~130 tiles live in the DOM at a time, ~108 dropped per 6000px of
-// scroll. Tiles that scroll past are gone, so each one is hashed and
-// checkpointed to IndexedDB while it is on screen. The walk is never repeated.
+// The library is read through the same batchexecute RPC the page uses to fill
+// its timeline (lcxiM), 500 items a request, newest first, with a page token
+// for the next request. Each item carries its media key, dedup key, capture
+// time and a thumbnail base URL. The thumbnails are then fetched at 32px with
+// the session cookies (the host answers a credentialed cross-origin fetch with
+// real bytes; only the cookieless and crossOrigin="anonymous" routes get a
+// placeholder) and hashed here. Nothing is scrolled or screenshotted, and the
+// tab does not need to be visible.
 //
-// Hashing crops a screenshot of the viewport, so a tile only counts when it is
-// wholly visible. The scroll step is deliberately smaller than a viewport to
-// give every row a fully-visible moment.
+// Measured: 500 items per listing request in ~1s. A thumbnail takes the server
+// ~250ms (recent photo) to ~600ms (old, cold) regardless of size or how many
+// are in flight, so throughput is concurrency-bound: ~100/s at 64 in flight,
+// ~150/s at 128, and worse again at 256. 10,000 photos ran in 96s at 64.
 window.GPDD = window.GPDD || {};
 
 (() => {
-  const { sel, hash, store } = window.GPDD;
+  const { hash, store } = window.GPDD;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const RPC_LIST = 'lcxiM'; // [pageId, startTs, pageSize, null, 1, source] -> [items, nextPageId, oldestTs]
+  const PAGE = 500;
+  const SOURCE_LIBRARY = 1; // 2 archive, 3 both
+  const DURATION_KEY = '76647426'; // in the item's trailing object; present only for videos
+  const IN_FLIGHT = 128;
+  const HASH_SIZE = '=w32-h32'; // fit inside, aspect kept - what dHash expects
+  const THUMB_SIZE = '=w192-h192-no'; // what the results panel shows
+
+  function parseItem(it) {
+    if (!Array.isArray(it) || typeof it[0] !== 'string' || !Array.isArray(it[1]) || typeof it[1][0] !== 'string') return null;
+    const ext = it[it.length - 1];
+    const isVideo = !!(ext && typeof ext === 'object' && !Array.isArray(ext) && ext[DURATION_KEY]);
+    const ts = typeof it[2] === 'number' ? it[2] : null;
+    return {
+      id: it[0],
+      base: it[1][0],
+      dedup: typeof it[3] === 'string' ? it[3] : null,
+      ts,
+      day: ts != null ? new Date(ts).toISOString().slice(0, 10) : 'unknown',
+      kind: isVideo ? 'Video' : 'Photo',
+    };
+  }
+
+  async function listPage(api, pageId, startTs) {
+    const [p] = await api.batch(RPC_LIST, [[pageId, startTs, PAGE, null, 1, SOURCE_LIBRARY]]);
+    if (!p || !Array.isArray(p[0])) throw new Error('the library listing came back in an unexpected shape');
+    return { items: p[0].map(parseItem).filter(Boolean), next: p[1] || null, oldestTs: Number(p[2]) || null };
+  }
+
+  async function fetchHash(base) {
+    const res = await fetch(base + HASH_SIZE, { credentials: 'include' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    if (!blob.type.startsWith('image/')) throw new Error(`got ${blob.type || 'no'} content`);
+    return hash.dhashBlob(blob);
+  }
 
   async function scan({
     maxItems = Infinity,
     onProgress = () => {},
     shouldStop = () => false,
-    blockedRect = () => null,
     fromMs = null, // inclusive, oldest end of the range
     toMs = null,   // exclusive, newest end of the range
   } = {}) {
-    const problems = sel.selfCheck();
-    if (problems.length) throw new Error('Google Photos UI changed: ' + problems.join('; '));
-
-    const scroller = sel.findScroller();
-
-    const ranged = fromMs != null || toMs != null;
-    const inRange = (ts) =>
-      !ranged || (ts != null && (fromMs == null || ts >= fromMs) && (toMs == null || ts < toMs));
-
-    // The main library grid is strictly newest-first, which is what lets a
-    // ranged scan jump ahead and stop early. Album and search views are not, so
-    // there the range is only a filter and the whole view still gets walked.
-    //
-    // Judged from the tiles themselves. The sidebar links to /documents/ on
-    // every page, including the main library, so asking the document for one of
-    // those anchors reported the main library as unordered and quietly disabled
-    // both the jump and the early stop.
-    const tiles = sel.liveTiles();
-    const ordered =
-      tiles.length > 0 &&
-      tiles.every((a) => /^(\.\/|\/)?photo\//.test((a.getAttribute('href') || '').replace(/^https?:\/\/[^/]+\//, '')));
-
-    // Jumping the scroller straight to an offset renders that part of the grid,
-    // so the newer edge of the range is found by bisecting it rather than
-    // walking to it. Measured on a real library: the main scroller is ~3.1M
-    // pixels tall, about 2,100 screenfuls, so a linear skip to a two-year-old
-    // photo takes minutes. Bisection gets there in roughly a dozen probes.
-    async function seekTo(targetMs, tick) {
-      const probe = async () => {
-        for (let i = 0; i < 8; i++) {
-          if (shouldStop()) return null;
-          await sleep(300);
-          const ts = tileTimes();
-          if (ts.length) return Math.max(...ts);
-        }
-        return null; // nothing rendered here
-      };
-      let lo = 0; // newest end of the bracket
-      let hi = 1; // oldest end
-      for (let i = 0; i < 18; i++) {
-        if (shouldStop()) return false;
-        const travel = scroller.scrollHeight - scroller.clientHeight;
-        if (travel <= 0 || (hi - lo) * travel < scroller.clientHeight) break;
-        scroller.scrollTop = Math.round(((lo + hi) / 2) * travel);
-        const newest = await probe();
-        if (newest == null || shouldStop()) return false; // fall back to walking
-        if (newest >= targetMs) lo = (lo + hi) / 2;
-        else hi = (lo + hi) / 2;
-        tick(newest);
-      }
-      // Land a little newer than the boundary. The sequential walk only ever
-      // moves older, so overshooting drops photos instead of scanning them.
-      const travel = scroller.scrollHeight - scroller.clientHeight;
-      scroller.scrollTop = Math.max(0, Math.round(lo * travel) - scroller.clientHeight * 2);
-      // The jump lands on a part of the grid Photos has never rendered, so this
-      // is the longest wait in the run.
-      await settle(10000);
-      return true;
-    }
-
-    // Google Photos draws a tile's box before its thumbnail arrives, and an
-    // unpainted tile is skipped rather than hashed. After a jump, or any scroll
-    // that outruns the network, a whole screenful can be blank - so the walk
-    // waits for the screenful to paint instead of scrolling past it.
-    async function settle(maxMs) {
-      const deadline = Date.now() + maxMs;
-      let best = 0;
-      for (;;) {
-        if (shouldStop()) return best;
-        const live = sel.liveTiles();
-        if (live.length) {
-          const ratio = live.filter((a) => sel.thumbUrl(a)).length / live.length;
-          if (ratio >= 0.9) return ratio;
-          if (ratio > best) best = ratio;
-        }
-        if (Date.now() >= deadline) return best;
-        await sleep(250);
-      }
-    }
-
-    const tileTimes = () =>
-      sel.liveTiles().map((a) => { const t = sel.readTile(a); return t ? t.ts : null; }).filter(Boolean);
-
-    // Drop rows whose hash came from a flat crop, so this pass hashes those
-    // photos properly instead of leaving them permanently unmatched. Only
-    // inside the range - this run will never revisit anything outside it.
-    const poisoned = (await store.allItems())
-      .filter((i) => hash.degenerate(i.hash) && inRange(i.ts))
-      .map((i) => i.id);
-    if (poisoned.length) await store.remove(poisoned);
-
+    const { api } = window.GPDD;
     const known = await store.knownIds();
-    const seenThisRun = new Set();
-
+    const stats = { startedAt: Date.now(), pages: 0, fetched: 0, failed: 0, hashMs: 0 };
     let added = 0;
-    let skipped = 0; // crops rejected as flat - see hash.degenerate
-    // Wall-clock split, so throughput is a measurement rather than a guess.
-    const stats = { startedAt: Date.now(), steps: 0, captureMs: 0, settleMs: 0, scrollMs: 0 };
-    let sanityChecked = false;
-    let idleRounds = 0;
-    let lastTop = -1;
-    // Skip forward, without hashing, until the newest end of the range is on
-    // screen; then stop once the grid has run older than the far end.
-    let seeking = ranged && ordered && toMs != null;
-    let pastRounds = 0;
+    let skipped = 0; // thumbnails that could not be fetched or hashed
+    let stoppedEarly = false;
+    const startTs = toMs != null ? toMs - 1 : null;
+    let newestTs = null;
 
-    const harvest = async () => {
-      const fresh = sel.liveTiles().filter((a) => {
-        const t = sel.readTile(a);
-        return t && inRange(t.ts) && !known.has(t.id) && !seenThisRun.has(t.id);
-      });
-      if (!fresh.length) return 0;
-
-      // Only tiles whose thumbnail has actually painted: an unpainted tile
-      // crops to a flat rectangle, which is worse than not hashing it at all.
-      const painted = fresh.filter((a) => sel.thumbUrl(a));
-      const cand = hash.croppable(painted, blockedRect()).slice(0, 120);
-      if (!cand.length) return 0;
-
-      // Rects are read immediately before the capture so the screenshot and the
-      // crop boxes describe the same frame.
-      const rects = cand.map(({ a }) => {
-        const r = a.getBoundingClientRect();
-        return { x: r.left, y: r.top, w: r.width, h: r.height };
-      });
-      const capturedAt = performance.now();
-      const res = await hash.hashRects(rects);
-      stats.captureMs += performance.now() - capturedAt;
-      // A backgrounded tab cannot be captured. That is a pause, not a failure.
-      if (res.inactive) return -1;
-      const hashes = res.hashes;
-
-      const rows = [];
-      cand.forEach(({ a }, i) => {
-        // A tile is only marked seen once it actually has a hash. Crops that
-        // fell outside the captured frame stay unmarked so a later scroll
-        // position gets another go at them, instead of being lost for the run.
-        if (!hashes[i]) return;
-        const t = sel.readTile(a);
-        if (!t) return;
-        seenThisRun.add(t.id);
-        known.add(t.id);
-        rows.push({ id: t.id, kind: t.kind, ts: t.ts, day: t.day, thumb: t.thumb, hash: hashes[i] });
-      });
-      skipped += cand.length - rows.length;
-      if (!rows.length) return 0;
-
-      if (!sanityChecked && rows.length >= 6) {
-        const got = rows.map((r) => r.hash).filter(Boolean);
-        if (got.length < 3) throw new Error('the screen capture could not be read - check the extension has permission for this page');
-        if (new Set(got).size < 2) throw new Error('every tile hashed identically - the capture is probably blank');
-        sanityChecked = true;
+    const report = (oldestTs) => {
+      let pct = null;
+      if (oldestTs != null && newestTs != null) {
+        const floor = fromMs != null ? fromMs : null;
+        if (floor != null && newestTs > floor) pct = Math.min(100, Math.round(((newestTs - oldestTs) / (newestTs - floor)) * 100));
       }
-
-      await store.putMany(rows);
-      added += rows.length;
-      return rows.length;
+      onProgress({ scanned: known.size, added, skipped, pct });
     };
 
-    if (seeking) {
-      onProgress({ seeking: true, scanned: known.size, added });
-      await seekTo(toMs, (newest) =>
-        onProgress({ seeking: true, seekAt: newest, scanned: known.size, added })
-      );
-    }
+    // The next listing request is in flight while this page's thumbnails are
+    // fetched, so the ~1s a listing takes is not paid per page.
+    const twice = (id) => listPage(api, id, startTs).catch(() => sleep(3000).then(() => listPage(api, id, startTs)));
+    let ahead = twice(null);
+    while (true) {
+      if (shouldStop()) { stoppedEarly = true; break; }
+      const page = await ahead;
+      stats.pages++;
+      ahead = page.next ? twice(page.next) : null;
+      if (newestTs == null && page.items.length) newestTs = page.items[0].ts;
 
-    while (!shouldStop()) {
-      if (document.hidden) {
-        onProgress({ stalled: true, scanned: known.size, added });
-        await sleep(1500);
-        continue;
-      }
+      const wanted = page.items.filter((it) =>
+        !known.has(it.id) && (fromMs == null || it.ts == null || it.ts >= fromMs) && (toMs == null || it.ts == null || it.ts < toMs)
+      ).slice(0, Math.max(0, maxItems - added));
 
-      if (seeking) {
-        const ts = tileTimes();
-        const atEnd = scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 4;
-        // Leave the skip as soon as the boundary row is anywhere on screen, so
-        // hashing starts a screenful early rather than exactly on the edge -
-        // a tile straddling the viewport edge is rejected by croppable().
-        if (!ts.length || Math.min(...ts) < toMs || (atEnd && scroller.scrollTop === lastTop)) {
-          seeking = false;
-        } else {
-          onProgress({ seeking: true, scanned: known.size, added });
-          lastTop = scroller.scrollTop;
-          scroller.scrollTop += scroller.clientHeight;
-          await sleep(300);
-          continue;
+      const rows = [];
+      let idx = 0;
+      const t0 = performance.now();
+      await Promise.all(Array.from({ length: IN_FLIGHT }, async () => {
+        while (idx < wanted.length && !shouldStop()) {
+          const it = wanted[idx++];
+          let h = null;
+          let ok = false;
+          for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+            try { h = await fetchHash(it.base); ok = true; }
+            catch (e) { if (attempt === 0) await sleep(500); }
+          }
+          if (!ok) { skipped++; stats.failed++; continue; }
+          stats.fetched++;
+          rows.push({ id: it.id, kind: it.kind, ts: it.ts, day: it.day, thumb: it.base + THUMB_SIZE, hash: h });
         }
-      }
+      }));
+      stats.hashMs += performance.now() - t0;
 
-      if ((await harvest()) === -1) {
-        onProgress({ stalled: true, scanned: known.size, added });
-        await sleep(1500);
-        continue;
+      if (rows.length) {
+        await store.putMany(rows);
+        rows.forEach((r) => known.add(r.id));
+        added += rows.length;
       }
-      onProgress({
-        scanned: known.size,
-        added,
-        skipped,
-        // Scroll position is meaningless as progress for a ranged scan: a
-        // 2016-only pass would finish at 30%.
-        pct: ranged ? null : Math.min(100, Math.round((scroller.scrollTop / Math.max(1, scroller.scrollHeight - scroller.clientHeight)) * 100)),
-      });
+      report(page.oldestTs);
 
-      // The cap is per run. known.size counts the whole store, so comparing
-      // against it would end a second scan before it started.
       if (added >= maxItems) break;
-
-      if (ordered && fromMs != null) {
-        const ts = tileTimes();
-        if (ts.length && Math.max(...ts) < fromMs) {
-          if (++pastRounds >= 3) break;
-        } else {
-          pastRounds = 0;
-        }
-      }
-
-      const atBottom = scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 4;
-      if (atBottom && scroller.scrollTop === lastTop) {
-        if (++idleRounds >= 3) break;
-      } else {
-        idleRounds = 0;
-      }
-      lastTop = scroller.scrollTop;
-
-      scroller.scrollTop += Math.round(scroller.clientHeight * 0.6);
-      stats.steps++;
-      // Google Photos renders on rAF and fetches thumbnails over the network;
-      // let the new rows actually paint before capturing them.
-      const paintAt = performance.now();
-      await sleep(250);
-      await settle(4000);
-      stats.settleMs += performance.now() - paintAt;
+      if (fromMs != null && page.oldestTs != null && page.oldestTs < fromMs) break;
+      if (!ahead) break;
     }
+
+    if (ahead) ahead.catch(() => {}); // a prefetch abandoned by an early exit
 
     stats.elapsedMs = Date.now() - stats.startedAt;
     stats.perSecond = stats.elapsedMs ? +((added / stats.elapsedMs) * 1000).toFixed(2) : 0;
     await store.setMeta('lastScan', { at: Date.now(), scanned: known.size, skipped, stats });
-    return { scanned: known.size, added, skipped, stats };
+    return { scanned: known.size, added, skipped, stoppedEarly, stats };
   }
 
   window.GPDD.scanner = { scan };

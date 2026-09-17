@@ -307,11 +307,11 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
    selection. */
 .gact { display: flex; align-items: center; gap: var(--s1); margin-left: auto; }
 .gact button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
-  padding: 5px 11px; border: 1px solid transparent; border-radius: 999px; cursor: pointer;
-  font: 500 var(--t1)/1.2 var(--ui); background: transparent; color: var(--fg-3); }
-.gact button:hover:not(:disabled) { background: var(--chrome); color: var(--fg); }
-.gact .gbin { color: var(--gone); }
-.gact .gbin:hover:not(:disabled) { background: var(--gone-soft); color: var(--gone); }
+  padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  font: 500 var(--t1)/1.2 var(--ui); background: transparent; color: var(--fg-2); }
+.gact button:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.gact .gbin { color: var(--gone); border-color: rgba(242,184,181,.42); }
+.gact .gbin:hover:not(:disabled) { background: var(--gone); border-color: var(--gone); color: var(--gone-ink); }
 .gact button:disabled { opacity: .38; cursor: default; }
 .gact button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .grp.skipped { opacity: .6; }

@@ -1,14 +1,7 @@
-// Hashing does not happen here, and nothing is downloaded.
-//
-// Two dead ends, both verified against the live site:
-//   * crossOrigin="anonymous" on the thumbnail loads a transparent placeholder -
-//     identical pixels for visibly different photos - because the host sends no
-//     Access-Control-Allow-Origin header. Without crossOrigin the canvas taints.
-//   * Fetching the thumbnail URL without session cookies returns a ~940KB HTML
-//     sign-in page with a 200 status, not an image.
-//
-// Instead the service worker screenshots the visible tab once and crops each
-// tile out of it. No network, no CORS, no auth.
+// dHash (9x8 grey, 64 bits) of a thumbnail blob. The thumbnails come from a
+// credentialed fetch in the content script: the host answers that with real
+// bytes, while crossOrigin="anonymous" (no cookies) gets a transparent
+// placeholder and a cookieless service-worker fetch gets a sign-in page.
 window.GPDD = window.GPDD || {};
 
 (() => {
@@ -87,5 +80,36 @@ window.GPDD = window.GPDD || {};
   // Resolves to { hashes } or { inactive: true } when the tab is not frontmost.
   const hashRects = (rects) => ask({ type: 'hashRects', rects, viewportWidth: window.innerWidth });
 
-  window.GPDD.hash = { hamming, hashRects, croppable, degenerate, popcount };
+  const W = 9, H = 8;
+  let ctx = null;
+  async function dhashBlob(blob) {
+    if (!ctx) ctx = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true });
+    const bmp = await createImageBitmap(blob);
+    try {
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(bmp, 0, 0, W, H);
+    } finally { bmp.close(); }
+    const d = ctx.getImageData(0, 0, W, H).data;
+    const grey = new Float32Array(W * H);
+    let sum = 0;
+    for (let i = 0; i < W * H; i++) {
+      const o = i * 4;
+      grey[i] = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
+      sum += grey[i];
+    }
+    // A flat image carries no signal and would sit within threshold of every
+    // other flat one; it gets no hash rather than a bogus one.
+    const mean = sum / (W * H);
+    let varSum = 0;
+    for (let i = 0; i < W * H; i++) varSum += (grey[i] - mean) ** 2;
+    if (Math.sqrt(varSum / (W * H)) < 5) return null;
+    let bits = '';
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W - 1; x++) bits += grey[y * W + x] < grey[y * W + x + 1] ? '1' : '0';
+    let hex = '';
+    for (let i = 0; i < 64; i += 4) hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
+    return hex;
+  }
+
+  window.GPDD.hash = { hamming, hashRects, croppable, degenerate, popcount, dhashBlob };
 })();

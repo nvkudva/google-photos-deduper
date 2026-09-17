@@ -27,9 +27,9 @@
         "src/selectors.js",
         "src/store.js",
         "src/hash.js",
+        "src/api.js",
         "src/scanner.js",
         "src/grouping.js",
-        "src/api.js",
         "src/overlay.js",
         "src/content.js"
       ]

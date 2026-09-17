@@ -126,8 +126,7 @@ window.GPDD = window.GPDD || {};
     ui.setScanning(true);
     const range = ui.range.get();
     ui.setStatus(
-      (range.full ? 'Scanning…' : `Scanning ${range.label}…`) +
-        ' keep this tab visible; Google Photos stops rendering when it is hidden.'
+      range.full ? 'Scanning…' : `Scanning ${range.label}…`
     );
     try {
       const res = await scanner.scan({
@@ -135,28 +134,15 @@ window.GPDD = window.GPDD || {};
         fromMs: range.fromMs,
         toMs: range.toMs,
         shouldStop: () => state.stop,
-        // Tiles under the scanning bar are left for a later scroll position
-        // rather than the bar being hidden and restored around every capture.
-        blockedRect: () => ui.blockedRect(),
         onProgress: (p) => {
-          if (p.stalled) return ui.setStatus('Paused — this tab must stay visible for Google Photos to render.');
-          if (p.seeking) {
-            const at = p.seekAt ? ` — at ${new Date(p.seekAt).toLocaleDateString()}` : '';
-            return ui.setStatus(`Jumping to ${range.label}${at}`);
-          }
           if (p.pct != null) ui.setBar(p.pct);
-          ui.setStatus(`Scanning… ${p.scanned} photos hashed` + (p.skipped ? ` · ${p.skipped} blank crops retried` : ''));
+          ui.setStatus(`Scanning… ${p.scanned} photos hashed` + (p.skipped ? ` · ${p.skipped} thumbnails could not be fetched` : ''));
         },
       });
       await regroup();
-      // A few blank crops are normal - a tile can be captured mid-paint and is
-      // retried. A high rate means the scan is outrunning the page, and the
-      // photos behind those crops are silently missing from the results.
-      const offered = res.added + res.skipped;
-      if (offered && res.skipped / offered > 0.15) {
+      if (res.skipped) {
         ui.setWarn(
-          `${res.skipped} of ${offered} tiles were captured before their thumbnail loaded and could not be hashed. ` +
-            'Those photos are not in the results. Scan again to pick them up, and keep the tab in the foreground while it runs.'
+          `${res.skipped} thumbnails could not be fetched, so those photos are not in the results. Scan again to pick them up.`
         );
       }
     } catch (e) {
