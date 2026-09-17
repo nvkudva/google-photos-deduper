@@ -98,7 +98,10 @@ window.GPDD = window.GPDD || {};
         },
         onProgress: (p) => {
           if (p.stalled) return ui.setStatus('Paused — this tab must stay visible for Google Photos to render.');
-          if (p.seeking) return ui.setStatus(`Skipping ahead to ${range.label}…`);
+          if (p.seeking) {
+            const at = p.seekAt ? ` — at ${new Date(p.seekAt).toLocaleDateString()}` : '';
+            return ui.setStatus(`Jumping to ${range.label}${at}`);
+          }
           if (p.pct != null) ui.setBar(p.pct);
           ui.setStatus(`Scanning… ${p.scanned} photos hashed` + (p.skipped ? ` · ${p.skipped} blank crops retried` : ''));
         },

@@ -35,6 +35,40 @@ window.GPDD = window.GPDD || {};
     // range is only a filter and the whole album still gets walked.
     const ordered = !document.querySelector('a[href*="/documents/"]');
 
+    // Jumping the scroller straight to an offset renders that part of the grid,
+    // so the newer edge of the range is found by bisecting it rather than
+    // walking to it. Measured on a real library: the main scroller is ~3.1M
+    // pixels tall, about 2,100 screenfuls, so a linear skip to a two-year-old
+    // photo takes minutes. Bisection gets there in roughly a dozen probes.
+    async function seekTo(targetMs, tick) {
+      const probe = async () => {
+        for (let i = 0; i < 8; i++) {
+          await sleep(300);
+          const ts = tileTimes();
+          if (ts.length) return Math.max(...ts);
+        }
+        return null; // nothing rendered here
+      };
+      let lo = 0; // newest end of the bracket
+      let hi = 1; // oldest end
+      for (let i = 0; i < 18; i++) {
+        const travel = scroller.scrollHeight - scroller.clientHeight;
+        if (travel <= 0 || (hi - lo) * travel < scroller.clientHeight) break;
+        scroller.scrollTop = Math.round(((lo + hi) / 2) * travel);
+        const newest = await probe();
+        if (newest == null) return false; // fall back to walking
+        if (newest >= targetMs) lo = (lo + hi) / 2;
+        else hi = (lo + hi) / 2;
+        tick(newest);
+      }
+      // Land a little newer than the boundary. The sequential walk only ever
+      // moves older, so overshooting drops photos instead of scanning them.
+      const travel = scroller.scrollHeight - scroller.clientHeight;
+      scroller.scrollTop = Math.max(0, Math.round(lo * travel) - scroller.clientHeight * 2);
+      await sleep(650);
+      return true;
+    }
+
     const tileTimes = () =>
       sel.liveTiles().map((a) => { const t = sel.readTile(a); return t ? t.ts : null; }).filter(Boolean);
 
@@ -111,6 +145,13 @@ window.GPDD = window.GPDD || {};
       added += rows.length;
       return rows.length;
     };
+
+    if (seeking) {
+      onProgress({ seeking: true, scanned: known.size, added });
+      await seekTo(toMs, (newest) =>
+        onProgress({ seeking: true, seekAt: newest, scanned: known.size, added })
+      );
+    }
 
     while (!shouldStop()) {
       if (document.hidden) {
