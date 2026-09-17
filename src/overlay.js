@@ -129,7 +129,11 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .ft .row { margin: 0; justify-content: flex-end; }
 .ft .del { min-width: 176px; }
 
-.panel.maxed { inset: 0; width: auto; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+/* Inset from every edge so the maximised state reads as a popup over Google
+   Photos rather than a replacement for it. */
+.panel.maxed { inset: min(48px, 5vh) min(64px, 5vw); width: auto; max-height: none;
+  border: 1px solid var(--hair); border-radius: var(--r2);
+  box-shadow: 0 32px 80px rgba(0,0,0,.65); }
 .panel.maxed .hd { padding: 12px var(--s3) 12px var(--s5); }
 .panel.maxed .body { padding: 0 var(--s5) var(--s5); }
 .panel.maxed .controls { position: sticky; top: 0; z-index: 2; background: var(--bg);
