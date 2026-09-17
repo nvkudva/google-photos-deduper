@@ -198,6 +198,12 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .tile.keeper::after { box-shadow: inset 0 0 0 2px var(--keep); }
 .tile.bin::after { box-shadow: inset 0 0 0 2px var(--gone); }
 .tile.bin img { opacity: .45; }
+/* A thumbnail that will not load shows as an empty frame rather than the
+   browser's broken-image glyph, which reads as a missing photo. */
+.tile.gone-thumb { background: var(--sunken); }
+.tile.gone-thumb::before { content: '?'; position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fg-3); font: 400 var(--t4)/1 var(--ui); }
 .mark { position: absolute; top: 4px; left: 4px; width: 19px; height: 19px; padding: 0;
   -webkit-appearance: none; appearance: none;
   display: flex; align-items: center; justify-content: center; border-radius: 50%;
@@ -787,6 +793,25 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   // Each group renders with one keeper (green) and the rest marked for deletion
   // (red). Clicking a thumbnail promotes it to keeper; clicking the corner badge
   // toggles whether that single item is deleted.
+  // Thumbnail URLs are a stable per-photo token plus a size suffix, so they do
+  // not rot the way a signed URL would. They can still fail - a photo deleted
+  // elsewhere, a token rotated - and a broken <img> in a review list is worse
+  // than a visible gap, because it looks like the photo rather than the link is
+  // gone. Any tile still live in the grid is a fresher source than the store.
+  function liveThumbs() {
+    const map = new Map();
+    for (const a of document.querySelectorAll('a[href*="/photo/"]')) {
+      const id = (a.getAttribute('href').match(/\/photo\/([^/?#]+)/) || [])[1];
+      if (!id || map.has(id)) continue;
+      const el = a.querySelector('[data-latest-bg]');
+      if (!el) continue;
+      const bg = el.getAttribute('data-latest-bg') || getComputedStyle(el).backgroundImage;
+      const url = (String(bg).match(/url\("?([^")]+)"?\)/) || [null, bg])[1];
+      if (url && /^https?:/.test(url)) map.set(id, url);
+    }
+    return map;
+  }
+
   function renderGroups(ui, groups, state, onChange) {
     ui.results.textContent = '';
     if (!groups.length) {
@@ -796,6 +821,8 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     // Maximised tiles are 200px, so they need a bigger render than the 144px
     // grid thumbnail, and the hover preview is redundant at that size.
     const maxed = !!(ui.isMaxed && ui.isMaxed());
+    const live = liveThumbs();
+    let broken = 0;
     const frag = document.createDocumentFragment();
     groups.slice(0, 200).forEach((g, gi) => {
       const box = document.createElement('div');
@@ -822,9 +849,16 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
         t.className = 'tile ' + (marked ? 'bin' : 'keeper');
         t.dataset.id = it.id;
         const img = document.createElement('img');
-        img.src = maxed ? bigUrl(it.thumb || '', 512) : it.thumb || '';
+        const src = live.get(it.id) || it.thumb || '';
+        img.src = maxed ? bigUrl(src, 512) : src;
         img.loading = 'lazy';
         img.alt = '';
+        img.onerror = () => {
+          t.classList.add('gone-thumb');
+          img.removeAttribute('src');
+          broken++;
+          if (ui.setThumbWarning) ui.setThumbWarning(broken);
+        };
         img.title = maxed
           ? 'Click to view full size'
           : marked

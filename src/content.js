@@ -36,6 +36,15 @@ window.GPDD = window.GPDD || {};
     }
   })();
 
+  // Reported once per render rather than per image, so a handful of dead
+  // thumbnails says so plainly instead of leaving silent gaps in the review.
+  ui.setThumbWarning = (n) => {
+    ui.setWarn(
+      `${n} thumbnail${n === 1 ? '' : 's'} could not be loaded. Those photos are still in the results; ` +
+        'scroll the grid past them, or scan again, to pick up fresh links.'
+    );
+  };
+
   function refresh() {
     overlay.renderGroups(ui, state.groups, state, refresh);
     const n = state.toDelete.size;

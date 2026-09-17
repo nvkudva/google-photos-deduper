@@ -140,6 +140,11 @@ this extension and nothing else.
   an album or raise the cap in stages.
 - Filename-based matching would need the info panel opened per photo — one page
   load each. Not viable at library scale, so it is not implemented.
+- Stored thumbnail URLs are a stable per-photo token plus a size suffix
+  (`.../pw/AP1Gcz...=w165-h220-n`); only the suffix changes between sessions, so
+  they do not rot the way a signed URL would. Results still prefer the live
+  grid's URL for any photo currently rendered, and a thumbnail that fails to
+  load shows an empty frame and a count rather than a broken-image glyph.
 - Videos are always excluded. A video's hash can only come from its poster
   frame - the still Google shows in the grid - so a match means one frame
   looked alike, which is not enough to bin a clip on. Measured on a real
