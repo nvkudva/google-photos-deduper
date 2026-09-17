@@ -20,13 +20,15 @@ window.GPDD = window.GPDD || {};
 :host {
   all: initial;
   color-scheme: dark;
-  --bg: #1b1c1e; --raised: #232529; --sunken: #141517; --chrome: #232529;
-  --line: #34373c; --hair: #2b2e33;
-  --fg: #e8eaed; --fg-2: #a3aab1; --fg-3: #7c838a;
-  --accent: #8ab4f8; --accent-ink: #12233a; --accent-soft: rgba(138,180,248,.12);
+  /* Sampled from photos.google.com itself: page #131314, cards #1e1f20, the
+     search pill #282a2c, selected nav #004a77 on #c2e7ff. */
+  --bg: #1e1f20; --raised: #282a2c; --sunken: #131314; --chrome: #1b1b1b;
+  --line: #444746; --hair: #303133;
+  --fg: #e3e3e3; --fg-2: #c4c7c5; --fg-3: #8e918f;
+  --accent: #a8c7fa; --accent-ink: #062e6f; --accent-soft: rgba(168,199,250,.12);
   --keep: #81c995; --gone: #f28b82; --gone-soft: rgba(242,139,130,.12); --note: #fdd663;
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
-  --r1: 6px; --r2: 10px; --r3: 14px;
+  --r1: 8px; --r2: 12px; --r3: 16px;
   --t1: 11px; --t2: 12px; --t3: 13px; --t4: 15px;
   /* Exactly the stack photos.google.com sets on its own body, so the panel
      renders in the same face as the page it sits on. */
@@ -48,7 +50,7 @@ window.GPDD = window.GPDD || {};
 .hd button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
   padding: 0; background: none; border: 0; border-radius: var(--r1); color: var(--fg-3); cursor: pointer; }
 .hd button svg { width: 16px; height: 16px; display: block; }
-.hd button:hover { background: #33363b; color: var(--fg); }
+.hd button:hover { background: var(--raised); color: var(--fg); }
 .hd button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .body { padding: var(--s4); overflow: auto; overscroll-behavior: contain; }
@@ -93,10 +95,10 @@ button.pill i { font-style: normal; color: var(--fg-3); margin-left: 5px; font-s
 .scrub { position: relative; height: 44px; margin-top: var(--s2); border-radius: var(--r1);
   background: var(--sunken); overflow: hidden; touch-action: none; }
 .scrub .spark { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 1px; padding: 0 1px; }
-.scrub .spark b { flex: 1; min-height: 1px; background: #31353b; border-radius: 1px 1px 0 0; }
+.scrub .spark b { flex: 1; min-height: 1px; background: #444746; border-radius: 1px 1px 0 0; }
 .scrub.cold .spark { display: none; }
 .scrub.cold::before { content: ''; position: absolute; inset: 0; opacity: .5;
-  background: repeating-linear-gradient(135deg, transparent 0 5px, #26292e 5px 6px); }
+  background: repeating-linear-gradient(135deg, transparent 0 5px, #303133 5px 6px); }
 .sel { position: absolute; top: 0; bottom: 0; background: var(--accent-soft);
   border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
 .hand { position: absolute; top: 50%; width: 10px; height: 24px; margin-top: -12px;
@@ -127,7 +129,7 @@ button.pill i { font-style: normal; color: var(--fg-3); margin-left: 5px; font-s
 
 input[type=range] { flex: 1; min-width: 60px; height: 18px; margin: 0; cursor: pointer;
   -webkit-appearance: none; appearance: none; background: transparent; }
-input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: #3b3e44; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: #444746; }
 input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
   margin-top: -5px; border: 0; border-radius: 50%; background: var(--accent);
   box-shadow: 0 0 0 0 var(--accent-soft); transition: box-shadow .15s; }
@@ -146,8 +148,8 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 0; accent-color: var(-
 .row { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); }
 button.act { flex: 0 0 auto; padding: 8px 16px; border: 1px solid transparent; border-radius: 999px;
   cursor: pointer; font: 500 var(--t3)/1.2 var(--ui); background: var(--accent); color: var(--accent-ink); }
-button.act:hover:not(:disabled) { background: #a3c5fa; }
-button.act.sec { background: transparent; color: var(--accent); border-color: #474b53; }
+button.act:hover:not(:disabled) { background: #c2ddff; }
+button.act.sec { background: transparent; color: var(--accent); border-color: var(--line); }
 button.act.sec:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
 button.act.ghost { background: transparent; color: var(--fg-3); border-color: transparent; padding: 8px 12px; }
 button.act.ghost:hover:not(:disabled) { background: var(--gone-soft); color: var(--gone); }
@@ -156,9 +158,10 @@ button.act.danger:hover:not(:disabled) { background: #f5a49d; }
 button.act:disabled { opacity: .38; cursor: default; }
 button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .scan { min-width: 92px; }
-.reset { margin-left: auto; }
+.row.actions { justify-content: flex-end; }
+.reset { margin-right: auto; }
 
-.bar { height: 3px; background: #2c2f34; border-radius: 999px; overflow: hidden; margin: var(--s4) 0 var(--s2); }
+.bar { height: 3px; background: #303133; border-radius: 999px; overflow: hidden; margin: var(--s4) 0 var(--s2); }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .25s ease; }
 .status { min-height: 18px; color: var(--fg-2); font-size: var(--t2); line-height: 1.5; }
 .note { color: var(--fg-3); font-size: var(--t2); padding: var(--s2) var(--s1) 0; }
@@ -305,10 +308,10 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       <label class="field"><span class="lbl">Scan at most</span><input type="number" class="cap" value="2000" min="50" step="50"><span class="unit">photos</span></label>
       <label class="field"><span class="lbl">Include videos</span><input type="checkbox" class="vid"></label>
     </div>
-    <div class="row">
-      <button class="act scan">Scan</button>
-      <button class="act sec stop" disabled>Stop</button>
+    <div class="row actions">
       <button class="act ghost reset">Reset</button>
+      <button class="act sec stop" disabled>Stop</button>
+      <button class="act scan">Scan</button>
     </div>
     <div class="bar"><i></i></div>
     <div class="status">Idle.</div>
