@@ -193,7 +193,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .tile.keeper::after { box-shadow: inset 0 0 0 2px var(--keep); }
 .tile.bin::after { box-shadow: inset 0 0 0 2px var(--gone); }
 .tile.bin img { opacity: .45; }
-.mark { position: absolute; top: -5px; left: -5px; width: 22px; height: 22px; padding: 0;
+.mark { position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; padding: 0;
   -webkit-appearance: none; appearance: none;
   display: flex; align-items: center; justify-content: center; border-radius: 50%;
   border: 2px solid var(--raised); cursor: pointer; color: #15201a; }
@@ -244,7 +244,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .panel.maxed .tile { width: auto; height: 240px; aspect-ratio: auto; }
 .panel.maxed .tile img { width: auto; height: 100%; object-fit: cover; background: none; }
 .panel.maxed .tiles { align-items: flex-start; }
-.panel.maxed .mark { width: 26px; height: 26px; top: -7px; left: -7px; }
+.panel.maxed .mark { width: 26px; height: 26px; top: 6px; left: 6px; }
 .panel.maxed .mark svg { width: 14px; height: 14px; }
 
 /* Must outrank .panel, which the maximised state paints opaque over the whole
