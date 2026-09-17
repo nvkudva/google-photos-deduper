@@ -115,7 +115,14 @@ window.GPDD = window.GPDD || {};
 
       let idle = 0;
       while (targets.size && !shouldStop()) {
-        if (document.hidden) { await sleep(1500); continue; }
+        // Same constraint as the scan: Google Photos stops rendering while the
+        // tab is hidden, so there is nothing to click. Say so rather than
+        // sitting on "Deleting..." while nothing happens.
+        if (document.hidden) {
+          onProgress({ stalled: true, deleted: deleted.length, remaining: targets.size });
+          await sleep(1500);
+          continue;
+        }
 
         const here = sel.liveTiles()
           .map((a) => ({ a, t: sel.readTile(a) }))

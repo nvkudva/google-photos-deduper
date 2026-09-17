@@ -168,6 +168,11 @@ window.GPDD = window.GPDD || {};
         shouldStop: () => state.stop,
         onProgress: (p) => {
           if (p.log) return ui.addLog(p.log);
+          if (p.stalled) {
+            return ui.setStatus(
+              `Paused — this tab must stay visible for Google Photos to render. ${p.remaining} still to delete.`
+            );
+          }
           ui.setStatus(`Deleted ${p.deleted} · ${p.remaining} to go`);
         },
       });
