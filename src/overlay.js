@@ -136,7 +136,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   display: flex; flex-direction: column; align-items: center;
   margin: 0 calc(var(--s5) * -1); padding: var(--s4) var(--s5) var(--s3);
   border-bottom: 1px solid var(--hair); }
-.panel.maxed .controls > * { width: 100%; max-width: 1120px; }
+.panel.maxed .controls > * { width: 100%; max-width: none; }
 .panel.maxed .fields { display: flex; align-items: center; padding: var(--s1) var(--s4); }
 .panel.maxed .field { min-height: 44px; }
 .panel.maxed .field:first-child { flex: 0 1 320px; }
@@ -144,10 +144,17 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   margin-left: var(--s4); padding-left: var(--s4); }
 .panel.maxed .field .lbl { flex: 0 0 auto; }
 .panel.maxed .bar { margin-top: var(--s3); }
-.panel.maxed .results { max-width: 1120px; margin-left: auto; margin-right: auto; }
-.panel.maxed .ft .row { width: 100%; max-width: 1120px; margin: 0 auto; }
-.panel.maxed .grp { padding: var(--s4); margin-bottom: var(--s3); }
-.panel.maxed .grp h4 { font-size: var(--t3); margin-bottom: var(--s3); }
+.panel.maxed .results { max-width: none; }
+.panel.maxed .ft .row { width: 100%; max-width: none; }
+.panel.maxed .grp { display: flex; align-items: stretch; gap: var(--s4);
+  padding: var(--s4); margin-bottom: var(--s3); }
+/* The count and date share one cell as the row's first column, so the photos
+   get the full remaining width instead of sitting under a heading. */
+.panel.maxed .grp h4 { flex: 0 0 132px; display: flex; flex-direction: column;
+  align-items: flex-start; justify-content: center; gap: 2px; margin-bottom: 0;
+  font-size: var(--t3); padding-right: var(--s4); border-right: 1px solid var(--hair); }
+.panel.maxed .grp h4 .when { white-space: nowrap; }
+.panel.maxed .tiles { flex: 1 1 auto; min-width: 0; align-items: flex-start; }
 .panel.maxed .tiles { gap: var(--s3); }
 .panel.maxed .tile { width: auto; height: 220px; }
 .panel.maxed .tile img { width: auto; height: 100%; object-fit: cover; background: none; }
