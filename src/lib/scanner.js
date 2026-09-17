@@ -1,6 +1,7 @@
 // The library is read through the same batchexecute RPC the page uses to fill
 // its timeline (lcxiM), 500 items a request, newest first, with a page token
-// for the next request. Each item carries its media key, dedup key, capture
+// for the next request. The request and item shapes are from
+// xob0t/Google-Photos-Toolkit (MIT), verified live before use. Each item carries its media key, dedup key, capture
 // time and a thumbnail base URL. The thumbnails are then fetched at 32px with
 // the session cookies (the host answers a credentialed cross-origin fetch with
 // real bytes; only the cookieless and crossOrigin="anonymous" routes get a

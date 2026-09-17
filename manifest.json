@@ -23,13 +23,18 @@
       ],
       "run_at": "document_idle",
       "js": [
-        "src/selectors.js",
-        "src/store.js",
-        "src/hash.js",
-        "src/api.js",
-        "src/scanner.js",
-        "src/grouping.js",
-        "src/overlay.js",
+        "src/lib/selectors.js",
+        "src/lib/store.js",
+        "src/lib/hash.js",
+        "src/lib/api.js",
+        "src/lib/scanner.js",
+        "src/lib/grouping.js",
+        "src/ui/icons.js",
+        "src/ui/styles.js",
+        "src/ui/range.js",
+        "src/ui/preview.js",
+        "src/ui/results.js",
+        "src/ui/panel.js",
         "src/content.js"
       ]
     }

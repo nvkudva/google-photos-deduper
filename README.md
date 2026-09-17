@@ -102,6 +102,21 @@ first, then scan. On a ~100k-photo library a full pass is an hours-long session,
 which is why scoping to an album or raising the cap gradually is the better way
 in.
 
+## Layout
+
+Plain content scripts, no build step; `manifest.json` lists them in load order
+and each registers itself on `window.GPDD`.
+
+- `src/lib/` — no DOM: `store` (IndexedDB), `hash` (dHash), `grouping`,
+  `api` (batchexecute calls: bin, restore, media info), `scanner` (listing plus
+  thumbnail hashing), `selectors` (the few Google Photos DOM facts still used).
+- `src/ui/` — the panel, one component per file under `window.GPDD.ui`:
+  `styles` and `icons` (inline CSS and SVG), `range` (month slider),
+  `preview` (hover preview and the maximised-view dialog), `results` (group
+  cards, paging, selection), `panel` (template, `mount()`, status setters).
+- `src/content.js` — wiring: state, the scan flow and the delete flow.
+- `src/background.js` — extension reload and the toolbar button only.
+
 ## Reloading during development
 
 Chrome only picks up edits to an unpacked extension after a reload on
@@ -149,6 +164,15 @@ this extension and nothing else.
   frame - the still Google shows in the grid - so a match means one frame
   looked alike, which is not enough to bin a clip on. Measured on a real
   library: 135 videos produced 0 exact and 1 near match.
-- Selectors are all in `src/selectors.js` with a self-check that surfaces
+- Selectors are all in `src/lib/selectors.js` with a self-check that surfaces
   "Google Photos looks different" in the panel instead of silently finding
   nothing.
+
+## Credits
+
+The private `batchexecute` request shapes — the timeline listing (`lcxiM`),
+media info (`VrseUb`), the bin listing (`zy0IHe`) and the trash/restore call
+(`XwAOJf`) — come from
+[xob0t/Google-Photos-Toolkit](https://github.com/xob0t/Google-Photos-Toolkit)
+(MIT), which reverse-engineered and has maintained them since 2024. This
+extension would have needed the same months of traffic capture without it.

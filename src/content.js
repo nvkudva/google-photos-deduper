@@ -1,11 +1,12 @@
 window.GPDD = window.GPDD || {};
 
 (() => {
-  const { sel, store, scanner, grouping, api, overlay } = window.GPDD;
+  const { sel, store, scanner, grouping, api } = window.GPDD;
+  const { mount, results } = window.GPDD.ui;
   if (window.__gpddBooted) return;
   window.__gpddBooted = true;
 
-  const ui = overlay.mount();
+  const ui = mount();
   const state = {
     groups: [], toDelete: new Set(), dismissed: new Set(), runningIds: new Set(),
     running: false, stop: false,
@@ -49,7 +50,7 @@ window.GPDD = window.GPDD || {};
   };
 
   function refresh() {
-    overlay.renderGroups(ui, state.groups, state, refresh);
+    results.renderGroups(ui, state.groups, state, refresh);
     const n = state.toDelete.size;
     ui.del.disabled = !n || state.running;
     ui.dellbl.textContent = n ? `Move ${n} to bin` : 'Move selected to bin';
@@ -101,9 +102,9 @@ window.GPDD = window.GPDD || {};
     }
     // Only the first page is selected. The rest are selected as they are shown,
     // so the delete count never covers groups that cannot be looked at.
-    state.shown = Math.min(state.groups.length, overlay.PAGE);
+    state.shown = Math.min(state.groups.length, results.PAGE);
     state.toDelete = new Set();
-    overlay.addSelection(state.groups, state, 0, state.shown);
+    results.addSelection(state.groups, state, 0, state.shown);
     const dupes = state.groups.reduce((s, g) => s + g.items.length - 1, 0);
     ui.setStatus(`${items.length} scanned · ${state.groups.length} groups · ${dupes} duplicates`);
     refresh();
@@ -220,7 +221,7 @@ window.GPDD = window.GPDD || {};
         if (shownBefore > state.shown) {
           const from = state.shown;
           state.shown = Math.min(state.groups.length, shownBefore);
-          overlay.addSelection(state.groups, state, from, state.shown);
+          results.addSelection(state.groups, state, from, state.shown);
         }
         refresh();
       } else if (pending.length) {
