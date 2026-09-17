@@ -75,6 +75,11 @@ Only then raise the cap.
    values catch recompressions and burst shots.
 3. Review the groups. Green is the keeper (oldest by default). Click a thumbnail
    to make it the keeper; click the caption under one to flip that single item.
+   **Hover a thumbnail** to see the photo large (up to 1200px) with its capture
+   time, so you can tell two near-identical shots apart before deleting one. The
+   preview works because the thumbnail URL's size segment is rewritable —
+   `=w144-h193-no` becomes `=w1200-h1200-no` and returns a genuinely larger
+   image rather than an upscale.
 4. **Dry run** first — it reports what it would delete and touches nothing.
 5. **Move selected to bin** — click it twice (the button arms itself for five
    seconds rather than opening a dialog; a content script's native `confirm()`

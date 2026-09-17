@@ -41,6 +41,14 @@ button.act:disabled { opacity: .45; cursor: default; }
 .tile.keep img { border-color: #81c995; }
 .tile.del img { border-color: #f28b82; opacity: .55; }
 .tile span { display: block; text-align: center; font-size: 10px; margin-top: 2px; color: #9aa0a6; cursor: pointer; }
+.preview { position: fixed; z-index: 2147483646; display: none; pointer-events: none;
+  background: #202124; border: 1px solid #5f6368; border-radius: 10px; padding: 6px;
+  box-shadow: 0 10px 36px rgba(0,0,0,.7); }
+.preview.on { display: block; }
+.preview img { display: block; border-radius: 6px; background: #303134;
+  max-width: 100%; max-height: 100%; object-fit: contain; }
+.preview b { display: block; margin-top: 4px; font: 400 11px/1.4 'Google Sans', Roboto, system-ui, sans-serif;
+  color: #9aa0a6; text-align: center; }
 .warn { background: #3b2f1c; color: #fdd663; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; }
 .ft { border-top: 1px solid #3c4043; padding: 10px 14px; background: #282a2d; }
 `;
@@ -69,7 +77,8 @@ button.act:disabled { opacity: .45; cursor: default; }
       <button class="act danger del" disabled>Move selected to bin</button>
     </div>
   </div>
-</div>`;
+</div>
+<div class="preview"><img alt=""><b></b></div>`;
 
   function mount() {
     const host = document.createElement('div');
@@ -88,6 +97,7 @@ button.act:disabled { opacity: .45; cursor: default; }
       cap: $('.cap'), vid: $('.vid'), scan: $('.scan'), stop: $('.stop'), reset: $('.reset'),
       bar: $('.bar i'), status: $('.status'), log: $('.log'), results: $('.results'),
       dry: $('.dry'), del: $('.del'), min: $('.min'),
+      preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
     };
 
     ui.min.onclick = () => ui.panel.classList.toggle('collapsed');
@@ -106,6 +116,74 @@ button.act:disabled { opacity: .45; cursor: default; }
     };
     ui.toggle = () => (host.style.display = host.style.display === 'none' ? '' : 'none');
     return ui;
+  }
+
+  // The grid thumbnail URL carries its size in the last path segment
+  // (".../<id>=w144-h193-no?..."), and that segment is rewritable - asking for
+  // w1200 returns a genuinely larger image rather than an upscale. Used for the
+  // hover preview so a duplicate can be judged before deleting it.
+  function bigUrl(thumb, px = 1200) {
+    try {
+      const u = new URL(thumb);
+      const segs = u.pathname.split('/');
+      const last = segs[segs.length - 1];
+      if (!last.includes('=')) return thumb;
+      segs[segs.length - 1] = last.replace(/=.*$/, `=w${px}-h${px}-no`);
+      u.pathname = segs.join('/');
+      return u.toString();
+    } catch (e) {
+      return thumb;
+    }
+  }
+
+  // Sits to the left of the panel, vertically centred on the hovered tile and
+  // clamped to the viewport. A short delay keeps it from flashing while the
+  // pointer sweeps across a row.
+  function attachPreview(ui, img, item) {
+    let timer = null;
+    // Position has to be recomputed once the image lands: before it loads the
+    // box has no real height, so a tall photo would be placed off the bottom.
+    const place = () => {
+      const panel = ui.panel.getBoundingClientRect();
+      const r = img.getBoundingClientRect();
+      const w = ui.preview.offsetWidth;
+      const h = ui.preview.offsetHeight;
+      ui.preview.style.left = Math.max(12, panel.left - w - 16) + 'px';
+      ui.preview.style.top =
+        Math.max(12, Math.min(window.innerHeight - h - 12, r.top + r.height / 2 - h / 2)) + 'px';
+    };
+
+    const show = () => {
+      const panel = ui.panel.getBoundingClientRect();
+      const maxW = Math.min(620, Math.max(220, panel.left - 32));
+      const maxH = Math.round(window.innerHeight * 0.8);
+      ui.preview.style.maxWidth = maxW + 'px';
+      ui.preview.style.maxHeight = maxH + 'px';
+      ui.previewImg.style.maxHeight = (maxH - 34) + 'px';
+      ui.previewImg.style.maxWidth = (maxW - 12) + 'px';
+
+      ui.previewImg.onload = place;
+      ui.previewImg.onerror = () => {
+        ui.previewImg.onerror = null;
+        ui.previewImg.src = item.thumb || '';
+      };
+      ui.previewImg.src = bigUrl(item.thumb || '');
+      ui.previewCap.textContent =
+        (item.ts ? new Date(item.ts).toLocaleString() : 'date unknown') +
+        (item.kind && item.kind !== 'Photo' ? ` \u00b7 ${item.kind}` : '');
+
+      ui.preview.classList.add('on');
+      place();
+    };
+
+    img.addEventListener('mouseenter', () => {
+      clearTimeout(timer);
+      timer = setTimeout(show, 120);
+    });
+    img.addEventListener('mouseleave', () => {
+      clearTimeout(timer);
+      ui.preview.classList.remove('on');
+    });
   }
 
   // Each group renders with one keeper (green) and the rest marked for deletion
@@ -147,6 +225,7 @@ button.act:disabled { opacity: .45; cursor: default; }
           else state.toDelete.add(it.id);
           onChange();
         };
+        attachPreview(ui, img, it);
         t.append(img, cap);
         tiles.append(t);
       });
@@ -162,5 +241,5 @@ button.act:disabled { opacity: .45; cursor: default; }
     ui.results.append(frag);
   }
 
-  window.GPDD.overlay = { mount, renderGroups };
+  window.GPDD.overlay = { mount, renderGroups, bigUrl };
 })();
