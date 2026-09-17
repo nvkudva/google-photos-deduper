@@ -177,6 +177,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .grp h4 { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3);
   margin: 0 0 10px; font: 500 var(--t2)/1.3 var(--ui); color: var(--fg); }
 .grp h4 .when { font-weight: 400; font-size: var(--t1); color: var(--fg-3); white-space: nowrap; }
+.grp h4 .flag { font-weight: 400; font-size: var(--t1); color: var(--fg-3); }
 /* Four to a row whatever the panel width, rather than a fixed tile size that
    silently drops to three when the column is a few pixels short. */
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2); }
