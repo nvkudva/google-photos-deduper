@@ -222,7 +222,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   margin: 0 calc(var(--s5) * -1); padding: var(--s4) var(--s5) var(--s3);
   border-bottom: 1px solid var(--hair); }
 .panel.maxed .controls > * { width: 100%; max-width: none; }
-.panel.maxed .fields { display: flex; align-items: center; margin: 0; padding: var(--s1) var(--s4); }
+.panel.maxed .fields { display: flex; align-items: center; margin: var(--s3) 0; padding: var(--s1) var(--s4); }
 .panel.maxed .field { min-height: 44px; }
 .panel.maxed .field:first-child { flex: 0 1 320px; }
 .panel.maxed .field + .field { border-top: 0; border-left: 1px solid var(--hair);
