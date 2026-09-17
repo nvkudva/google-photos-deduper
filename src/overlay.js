@@ -31,6 +31,10 @@ window.GPDD = window.GPDD || {};
   /* Exactly the stack photos.google.com sets on its own body, so the panel
      renders in the same face as the page it sits on. */
   --ui: 'Google Sans Text', 'Google Sans', Roboto, Arial, sans-serif;
+  /* all:initial above resets inheritance, so the face has to be re-stated
+     here or anything outside .panel - the scanning bar, the preview - falls
+     back to the browser default. */
+  font: 400 var(--t3)/1.5 var(--ui);
 }
 .panel { position: fixed; right: var(--s4); bottom: var(--s4); width: 380px; max-height: 78vh;
   display: flex; flex-direction: column; z-index: 2147483647;

@@ -50,6 +50,7 @@ window.GPDD = window.GPDD || {};
     async function seekTo(targetMs, tick) {
       const probe = async () => {
         for (let i = 0; i < 8; i++) {
+          if (shouldStop()) return null;
           await sleep(300);
           const ts = tileTimes();
           if (ts.length) return Math.max(...ts);
@@ -59,11 +60,12 @@ window.GPDD = window.GPDD || {};
       let lo = 0; // newest end of the bracket
       let hi = 1; // oldest end
       for (let i = 0; i < 18; i++) {
+        if (shouldStop()) return false;
         const travel = scroller.scrollHeight - scroller.clientHeight;
         if (travel <= 0 || (hi - lo) * travel < scroller.clientHeight) break;
         scroller.scrollTop = Math.round(((lo + hi) / 2) * travel);
         const newest = await probe();
-        if (newest == null) return false; // fall back to walking
+        if (newest == null || shouldStop()) return false; // fall back to walking
         if (newest >= targetMs) lo = (lo + hi) / 2;
         else hi = (lo + hi) / 2;
         tick(newest);
@@ -86,6 +88,7 @@ window.GPDD = window.GPDD || {};
       const deadline = Date.now() + maxMs;
       let best = 0;
       for (;;) {
+        if (shouldStop()) return best;
         const live = sel.liveTiles();
         if (live.length) {
           const ratio = live.filter((a) => sel.thumbUrl(a)).length / live.length;
