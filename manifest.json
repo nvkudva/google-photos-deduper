@@ -8,8 +8,7 @@
     "activeTab"
   ],
   "host_permissions": [
-    "https://photos.google.com/*",
-    "<all_urls>"
+    "https://photos.google.com/*"
   ],
   "background": {
     "service_worker": "src/background.js"

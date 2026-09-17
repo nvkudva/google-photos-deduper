@@ -52,34 +52,6 @@ window.GPDD = window.GPDD || {};
     return true;
   };
 
-  const ask = (msg) =>
-    new Promise((res, rej) => {
-      chrome.runtime.sendMessage(msg, (r) => {
-        if (chrome.runtime.lastError) return rej(new Error(chrome.runtime.lastError.message));
-        if (r && r.error) return rej(new Error(r.error));
-        res(r);
-      });
-    });
-
-  // `tiles` are anchors; only ones wholly inside the viewport and clear of the
-  // panel can be cropped out of a screenshot.
-  function croppable(tiles, blockedRect) {
-    const out = [];
-    for (const a of tiles) {
-      const r = a.getBoundingClientRect();
-      if (r.width < 24 || r.height < 24) continue;
-      if (r.top < 56 || r.left < 0 || r.bottom > window.innerHeight || r.right > window.innerWidth) continue;
-      if (blockedRect &&
-          r.right > blockedRect.left && r.left < blockedRect.right &&
-          r.bottom > blockedRect.top && r.top < blockedRect.bottom) continue;
-      out.push({ a, rect: { x: r.left, y: r.top, w: r.width, h: r.height } });
-    }
-    return out;
-  }
-
-  // Resolves to { hashes } or { inactive: true } when the tab is not frontmost.
-  const hashRects = (rects) => ask({ type: 'hashRects', rects, viewportWidth: window.innerWidth });
-
   const W = 9, H = 8;
   let ctx = null;
   async function dhashBlob(blob) {
@@ -111,5 +83,5 @@ window.GPDD = window.GPDD || {};
     return hex;
   }
 
-  window.GPDD.hash = { hamming, hashRects, croppable, degenerate, popcount, dhashBlob };
+  window.GPDD.hash = { hamming, degenerate, popcount, dhashBlob };
 })();

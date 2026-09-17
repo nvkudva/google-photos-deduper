@@ -636,16 +636,10 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     ui.syncChrome();
     ui.sim.oninput = () => (ui.simv.textContent = ui.sim.value + '%');
 
-    // While a scan runs the panel steps aside for a compact bar, so the only
-    // thing overlapping the grid is something small enough to hash around.
+    // While a scan runs the panel steps aside for a compact bar.
     ui.setScanning = (on) => {
       ui.panel.style.display = on ? 'none' : '';
       ui.scanbar.classList.toggle('on', on);
-    };
-    ui.blockedRect = () => {
-      const el = ui.scanbar.classList.contains('on') ? ui.scanbar : ui.panel;
-      const r = el.getBoundingClientRect();
-      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
     };
     ui.setStatus = (t) => {
       ui.status.textContent = t;

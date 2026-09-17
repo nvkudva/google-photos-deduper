@@ -19,27 +19,6 @@ window.GPDD = window.GPDD || {};
   // tree as per-tile ones and select a whole day. Never click those.
   const isSelectAll = (el) => /^Select all/i.test(el.getAttribute('aria-label') || '');
 
-  // The scroll container differs by view: a <c-wiz> on the main library, a
-  // plain div[jsname] on the Screenshots/Documents views. So walk up from a real
-  // tile and take the first scrollable ancestor, rather than matching a tag.
-  function findScroller() {
-    const tile = document.querySelector(S.tile);
-    const scrollable = (n) => {
-      if (!n || n === document.body || n === document.documentElement) return false;
-      const ov = getComputedStyle(n).overflowY;
-      return (ov === 'auto' || ov === 'scroll') && n.scrollHeight > n.clientHeight + 200;
-    };
-    for (let n = tile; n; n = n.parentElement) if (scrollable(n)) return n;
-
-    // No tile yet (grid still loading), or an unfamiliar layout.
-    const all = [...document.querySelectorAll('c-wiz,div')].filter(scrollable);
-    if (all.length) return all.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
-    if (document.scrollingElement && document.scrollingElement.scrollHeight > window.innerHeight + 200) {
-      return document.scrollingElement;
-    }
-    return null;
-  }
-
   function tileCheckbox(tileAnchor) {
     const w = tileAnchor.closest(S.wrapper) || tileAnchor.parentElement;
     if (!w) return null;
@@ -113,7 +92,6 @@ window.GPDD = window.GPDD || {};
 
   function selfCheck() {
     const problems = [];
-    if (!findScroller()) problems.push('the scrollable grid container was not found');
     const tiles = liveTiles();
     if (!tiles.length) problems.push('no photo tiles matched ' + S.tile);
     else {
@@ -128,7 +106,7 @@ window.GPDD = window.GPDD || {};
   }
 
   window.GPDD.sel = {
-    S, findScroller, tileCheckbox, thumbUrl, parseLabel, readTile, liveTiles,
+    S, tileCheckbox, thumbUrl, parseLabel, readTile, liveTiles,
     safeRect, buttonRect, isSelectAll, selfCheck,
   };
 })();
