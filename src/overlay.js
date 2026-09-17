@@ -171,6 +171,9 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .25s ease; }
 .status { min-height: 18px; color: var(--fg-2); font-size: var(--t2); line-height: 1.5; }
 .note { color: var(--fg-3); font-size: var(--t2); padding: var(--s2) var(--s1) 0; }
+.more { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3);
+  padding-top: var(--s3); border-top: 1px solid var(--hair); }
+.more span { flex: 1 1 auto; color: var(--fg-3); font-size: var(--t2); }
 .log { display: none; margin-top: var(--s3); max-height: 96px; overflow: auto;
   font: 400 11px/1.6 var(--ui); color: var(--fg-3);
   background: var(--sunken); border: 1px solid var(--hair); border-radius: var(--r1);
@@ -812,6 +815,20 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     return map;
   }
 
+  // Groups are rendered a page at a time, and the delete selection covers
+  // exactly the pages that have been rendered. Selecting every group while
+  // showing 200 of them is how 149 photos ended up queued out of sight.
+  const PAGE = 200;
+
+  function addSelection(groups, state, from, to) {
+    for (let i = from; i < to; i++) {
+      const g = groups[i];
+      g.items.forEach((it) => {
+        if (it.id !== g.keeperId) state.toDelete.add(it.id);
+      });
+    }
+  }
+
   function renderGroups(ui, groups, state, onChange) {
     ui.results.textContent = '';
     if (!groups.length) {
@@ -824,7 +841,8 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     const live = liveThumbs();
     let broken = 0;
     const frag = document.createDocumentFragment();
-    groups.slice(0, 200).forEach((g, gi) => {
+    if (!state.shown || state.shown > groups.length) state.shown = Math.min(groups.length, PAGE);
+    groups.slice(0, state.shown).forEach((g, gi) => {
       const box = document.createElement('div');
       box.className = 'grp';
       const h = document.createElement('h4');
@@ -883,15 +901,29 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       });
       box.append(tiles);
       frag.append(box);
-      if (gi === 199) {
-        const more = document.createElement('div');
-        more.className = 'note';
-        more.textContent = `…and ${groups.length - 200} more groups (all of them are included in a delete run).`;
-        frag.append(more);
-      }
     });
+
+    if (groups.length > state.shown) {
+      const rest = groups.length - state.shown;
+      const bar = document.createElement('div');
+      bar.className = 'more';
+      const label = document.createElement('span');
+      label.textContent = `Showing ${state.shown} of ${groups.length} groups`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'act sec';
+      btn.textContent = `Show ${Math.min(PAGE, rest)} more`;
+      btn.onclick = () => {
+        const from = state.shown;
+        state.shown = Math.min(groups.length, from + PAGE);
+        addSelection(groups, state, from, state.shown);
+        onChange();
+      };
+      bar.append(label, btn);
+      frag.append(bar);
+    }
     ui.results.append(frag);
   }
 
-  window.GPDD.overlay = { mount, renderGroups, bigUrl };
+  window.GPDD.overlay = { mount, renderGroups, bigUrl, addSelection, PAGE };
 })();

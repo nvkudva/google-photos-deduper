@@ -64,8 +64,11 @@ window.GPDD = window.GPDD || {};
     state.groups = grouping.group(items, {
       similarity: Number(ui.sim.value),
     });
+    // Only the first page is selected. The rest are selected as they are shown,
+    // so the delete count never covers groups that cannot be looked at.
+    state.shown = Math.min(state.groups.length, overlay.PAGE);
     state.toDelete = new Set();
-    state.groups.forEach((g) => g.items.forEach((i) => { if (i.id !== g.keeperId) state.toDelete.add(i.id); }));
+    overlay.addSelection(state.groups, state, 0, state.shown);
     const dupes = state.groups.reduce((s, g) => s + g.items.length - 1, 0);
     ui.setStatus(`${items.length} scanned · ${state.groups.length} groups · ${dupes} duplicates`);
     refresh();
