@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Photo DeDuper">
+  <title>Photo DeDuper</title>
+  <!-- Source of truth for every icon size. The PNGs in this folder are
+       rasterised from this file by tools/rasterize.py; edit the SVG, never a
+       PNG. Flat fills only, Google's four colours, no gradient and no shadow:
+       the mark has to survive being drawn 16 pixels wide. -->
+  <defs>
+    <!-- The tile. A superellipse rather than a rounded rectangle: the corner
+         curvature runs on continuously instead of stopping dead at the arc. -->
+    <path id="tile" d="M64 2
+      C 96.5 2 103.4 3.6 111.2 11.4 S 126 31.5 126 64
+        126 96.5 118.2 111.2 96.5 126 64 126
+        31.5 126 20.8 118.2 6.8 96.5 2 64
+        3.6 31.5 11.4 20.8 31.5 2 64 2 Z"/>
+    <clipPath id="frontCard">
+      <rect x="17" y="41" width="67" height="50" rx="8"/>
+    </clipPath>
+  </defs>
+
+  <use href="#tile" fill="#ffffff"/>
+  <use href="#tile" fill="none" stroke="#e8eaed" stroke-width="2"/>
+
+  <!-- Everything below is drawn about the front card and then nudged down, so
+       the fan's weight sits on the tile's optical centre rather than its
+       geometric one. -->
+  <g transform="translate(0 7)">
+    <!-- The copies, fanned out behind: each one only shows its top and right
+         edge, so the stack reads as the same photo several times over. -->
+    <rect x="44" y="23" width="67" height="50" rx="8" fill="#ea4335"/>
+    <rect x="35" y="29" width="67" height="50" rx="8" fill="#fbbc04"/>
+    <rect x="26" y="35" width="67" height="50" rx="8" fill="#34a853"/>
+
+    <!-- The one being kept, with the plainest possible photo glyph in it. -->
+    <rect x="17" y="41" width="67" height="50" rx="8" fill="#4285f4"/>
+    <g clip-path="url(#frontCard)" fill="#ffffff">
+      <circle cx="35.5" cy="58" r="6.5"/>
+      <path d="M52 57 L86 91 H26 Z"/>
+      <path d="M33 68.5 L55.5 91 H10 Z"/>
+    </g>
+  </g>
+</svg>

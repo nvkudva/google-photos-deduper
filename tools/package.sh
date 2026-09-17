@@ -15,9 +15,10 @@ name="photo-deduper-$(jq -r .version manifest.json).zip"
 rm -rf "$stage" "$out/$name"
 mkdir -p "$stage"
 
-python3 tools/make-icons.py >/dev/null
+python3 tools/rasterize.py >/dev/null
 
-cp -R icons "$stage/"
+mkdir -p "$stage/icons"
+cp icons/*.png "$stage/icons/"  # the SVG is the source, not something the browser loads
 mkdir -p "$stage/src"
 cp -R src/lib src/ui "$stage/src/"
 cp src/background.js src/content.js "$stage/src/"
