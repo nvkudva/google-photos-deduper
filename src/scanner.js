@@ -31,9 +31,17 @@ window.GPDD = window.GPDD || {};
       !ranged || (ts != null && (fromMs == null || ts >= fromMs) && (toMs == null || ts < toMs));
 
     // The main library grid is strictly newest-first, which is what lets a
-    // ranged scan skip ahead and stop early. Album views are not, so there the
-    // range is only a filter and the whole album still gets walked.
-    const ordered = !document.querySelector('a[href*="/documents/"]');
+    // ranged scan jump ahead and stop early. Album and search views are not, so
+    // there the range is only a filter and the whole view still gets walked.
+    //
+    // Judged from the tiles themselves. The sidebar links to /documents/ on
+    // every page, including the main library, so asking the document for one of
+    // those anchors reported the main library as unordered and quietly disabled
+    // both the jump and the early stop.
+    const tiles = sel.liveTiles();
+    const ordered =
+      tiles.length > 0 &&
+      tiles.every((a) => /^(\.\/|\/)?photo\//.test((a.getAttribute('href') || '').replace(/^https?:\/\/[^/]+\//, '')));
 
     // Jumping the scroller straight to an offset renders that part of the grid,
     // so the newer edge of the range is found by bisecting it rather than

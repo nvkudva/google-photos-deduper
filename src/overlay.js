@@ -436,8 +436,11 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       const left = x(R.to + 1), right = x(R.from);
       els.sel.style.left = left + '%';
       els.sel.style.right = 100 - right + '%';
-      els.hNew.style.left = 'calc(' + left + '% - 5px)';
-      els.hOld.style.left = 'calc(' + right + '% - 5px)';
+      // Clamped inside the track: at full range the handles would otherwise sit
+      // half outside it and be clipped, leaving nothing to grab.
+      const place = (pc) => 'clamp(0px, calc(' + pc + '% - 5px), calc(100% - 10px))';
+      els.hNew.style.left = place(left);
+      els.hOld.style.left = place(right);
       els.pNew.innerHTML = '';
       els.pNew.append(fmtMi(R.to), Object.assign(document.createElement('i'), { textContent: '▾' }));
       els.pOld.innerHTML = '';
@@ -502,7 +505,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       get() {
         return {
           full: isFull(),
-          label: fmtMi(R.from) + ' – ' + fmtMi(R.to),
+          label: fmtMi(R.to) + ' – ' + fmtMi(R.from), // newest first, as the pills read
           fromMs: isFull() ? null : msOfMi(R.from),
           toMs: isFull() ? null : msOfMi(R.to + 1), // exclusive
         };
