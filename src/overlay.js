@@ -149,8 +149,9 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .panel.maxed .grp { padding: var(--s4); margin-bottom: var(--s3); }
 .panel.maxed .grp h4 { font-size: var(--t3); margin-bottom: var(--s3); }
 .panel.maxed .tiles { gap: var(--s3); }
-.panel.maxed .tile { width: 200px; height: 200px; }
-.panel.maxed .tile img { object-fit: contain; background: var(--sunken); }
+.panel.maxed .tile { width: auto; height: 220px; }
+.panel.maxed .tile img { width: auto; height: 100%; object-fit: cover; background: none; }
+.panel.maxed .tiles { align-items: flex-start; }
 .panel.maxed .mark { width: 26px; height: 26px; top: -7px; left: -7px; }
 .panel.maxed .mark svg { width: 14px; height: 14px; }
 
