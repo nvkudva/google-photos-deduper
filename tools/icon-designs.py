@@ -14,6 +14,9 @@ import math, os, struct, sys, zlib
 
 SS = 6
 WHITE = (255, 255, 255)
+# Google's own four, sampled from the Material palette the page uses.
+G_BLUE, G_RED, G_YELLOW, G_GREEN = (0x42, 0x85, 0xF4), (0xEA, 0x43, 0x35), (0xFB, 0xBC, 0x04), (0x34, 0xA8, 0x53)
+G_GREY = (0x9A, 0xA0, 0xA6)
 
 
 # ----------------------------------------------------------------- geometry ---
@@ -127,11 +130,94 @@ def d4(px, py, g):
     return photo(0.17, 0.32, 0.56, 0.42, px, py, g)
 
 
+def rot(px, py, deg):
+    """Point in a frame rotated about the tile centre, for diagonal shapes."""
+    a = math.radians(deg)
+    x, y = px - 0.5, py - 0.5
+    return x * math.cos(a) + y * math.sin(a), -x * math.sin(a) + y * math.cos(a)
+
+
+def capsule(x0, x1, half, u, v):
+    return rrect(x0, -half, x1 - x0, half * 2, half, u, v)
+
+
+def glyph(x, y, w, h, px, py, ink, fill=None):
+    """A card with a sun and two peaks, drawn in `ink` on `fill`."""
+    if not rrect(x, y, w, h, 0.055, px, py):
+        return None
+    u, v = (px - x) / w, (py - y) / h
+    if circle(0.26, 0.30, 0.115, u, v) \
+            or (v <= 0.82 and tri((0.58, 0.30), (1.02, 0.82), (0.16, 0.82), u, v)) \
+            or (v <= 0.82 and tri((0.28, 0.52), (0.60, 0.82), (-0.04, 0.82), u, v)):
+        return ink + (255,)
+    return (fill + (255,)) if fill else None
+
+
+def d5(px, py, g):
+    """A stack of photos in Google's four: the copies peek out behind."""
+    for i, col in ((3, G_RED), (2, G_YELLOW), (1, G_GREEN)):
+        off = 0.062 * i
+        if rrect(0.17 + off, 0.24 - off * 0.34, 0.52, 0.36, 0.05, px, py) \
+                and not rrect(0.17 + off - 0.062, 0.24 - off * 0.34 + 0.021, 0.52, 0.36, 0.05, px, py):
+            return col + (255,)
+    if rrect(0.17, 0.24, 0.52, 0.36, 0.05, px, py):
+        return glyph(0.17, 0.24, 0.52, 0.36, px, py, WHITE, G_BLUE)
+    return None
+
+
+def d6(px, py, g):
+    """A frame built from the four colours, around the photo it keeps."""
+    x, y, w, t = 0.20, 0.20, 0.60, 0.085
+    if rrect(x, y, w, w, 0.10, px, py) and not rrect(x + t, y + t, w - 2 * t, w - 2 * t, 0.06, px, py):
+        # One side per colour, split on the diagonals so the corners meet clean.
+        ox, oy = px - (x + w / 2), py - (y + w / 2)
+        if abs(ox) <= abs(oy):
+            return (G_BLUE if oy < 0 else G_YELLOW) + (255,)
+        return (G_GREEN if ox < 0 else G_RED) + (255,)
+    c = glyph(x + t, y + t, w - 2 * t, w - 2 * t, px, py, G_GREY)
+    return c
+
+
+def d7(px, py, g):
+    """Two copies overlapping, and the badge for what happens to one."""
+    a = circle(0.40, 0.44, 0.225, px, py)
+    b = circle(0.63, 0.44, 0.225, px, py)
+    if a and b:
+        return G_YELLOW + (255,)
+    if a:
+        return G_BLUE + (255,)
+    if b:
+        return G_GREEN + (255,)
+    if circle(0.70, 0.78, 0.145, px, py):
+        if abs(py - 0.78) <= 0.026 and abs(px - 0.70) <= 0.068:
+            return WHITE + (255,)
+        return G_RED + (255,)
+    return None
+
+
+def d8(px, py, g):
+    """Four petals to the corners: Google's palette, not Google's pinwheel."""
+    for deg, col in ((45, G_BLUE), (135, G_RED), (225, G_YELLOW), (315, G_GREEN)):
+        u, v = rot(px, py, deg)
+        if capsule(0.055, 0.405, 0.098, u, v):
+            return col + (255,)
+    if circle(0.5, 0.5, 0.062, px, py):
+        return G_GREY + (255,)
+    return None
+
+
+LIGHT = ((0xFF, 0xFF, 0xFF), (0xF1, 0xF3, 0xF4))
+
 DESIGNS = {
     1: ('stacked-photos', d1, ((0x5B, 0x5C, 0xE2), (0x9B, 0x5D, 0xE5))),
     2: ('overlap', d2, ((0x0A, 0x84, 0xFF), (0x32, 0xD7, 0x4B))),
     3: ('thinned-stack', d3, ((0x00, 0xB3, 0xA6), (0x0A, 0x84, 0xFF))),
     4: ('sparkle', d4, ((0xFF, 0x2D, 0x78), (0xFF, 0x9F, 0x0A))),
+    # Google's palette on a white tile, the way Google's own app icons sit.
+    5: ('colour-stack', d5, LIGHT),
+    6: ('colour-frame', d6, LIGHT),
+    7: ('overlap-colour', d7, LIGHT),
+    8: ('petals', d8, LIGHT),
 }
 
 
