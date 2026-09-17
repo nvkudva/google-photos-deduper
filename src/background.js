@@ -89,14 +89,58 @@ async function hashRects(tab, rects, viewportWidth) {
 // --------------------------------------------------------------- debugger ---
 const attached = new Set();
 
+// Whether a "Move to bin" click actually did anything cannot be read off the
+// page: /photo/<id> renders identically for a binned photo and a live one, the
+// photo does not leave the view, and no snackbar is emitted. What does differ
+// is the traffic. Opening a photo fires a fixed set of batchexecute RPCs for
+// that photo's source-path; clicking Move to bin fires further ones with rpcids
+// that were not in that set. Matching "an rpcid this photo has not used yet"
+// rather than a specific id keeps this working across Google's deploys, whose
+// build label (and obfuscated rpcids) change - the URL even carries the build.
+const RPC = /\/_\/PhotosUi\/data\/batchexecute/;
+const netLog = []; // { id, rpcids, ts, status }
+const NET_MAX = 400;
+
+const noteRequest = (url) => {
+  if (!RPC.test(url)) return null;
+  let u;
+  try { u = new URL(url); } catch (e) { return null; }
+  const path = u.searchParams.get('source-path') || '';
+  const m = path.match(/\/photo\/([^/?#&]+)/);
+  if (!m) return null;
+  const row = { id: m[1], rpcids: u.searchParams.get('rpcids') || '', ts: Date.now(), status: 0 };
+  netLog.push(row);
+  if (netLog.length > NET_MAX) netLog.splice(0, netLog.length - NET_MAX);
+  return row;
+};
+
+const pending = new Map(); // CDP requestId -> row
+chrome.debugger.onEvent.addListener((source, method, params) => {
+  if (!source.tabId || !attached.has(source.tabId)) return;
+  if (method === 'Network.requestWillBeSent') {
+    const row = noteRequest((params.request && params.request.url) || '');
+    if (row) pending.set(params.requestId, row);
+  } else if (method === 'Network.responseReceived') {
+    const row = pending.get(params.requestId);
+    if (row) {
+      row.status = (params.response && params.response.status) || 0;
+      pending.delete(params.requestId);
+    }
+  }
+});
+
 async function attach(tabId) {
   if (attached.has(tabId)) return;
   await chrome.debugger.attach({ tabId }, '1.3');
   attached.add(tabId);
+  // Needed for the delete confirmation above, not for the clicks.
+  try { await chrome.debugger.sendCommand({ tabId }, 'Network.enable'); } catch (e) { /* clicks still work */ }
 }
 
 async function detach(tabId) {
-  if (!attached.has(tabId)) return;
+  // Not gated on `attached`: after a service-worker restart the set is empty
+  // while the tab is still attached, and skipping the call would leave the
+  // debugger banner up for good. detach() on an unattached tab just throws.
   attached.delete(tabId);
   try { await chrome.debugger.detach({ tabId }); } catch (e) { /* tab may be gone */ }
 }
@@ -125,6 +169,9 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       if (!tabId) return respond({ error: 'no tab' });
       if (msg.type === 'attach') { await attach(tabId); return respond({ ok: true }); }
       if (msg.type === 'detach') { await detach(tabId); return respond({ ok: true }); }
+      if (msg.type === 'netLog') {
+        return respond({ rows: netLog.filter((r) => r.id === msg.id && r.ts >= (msg.since || 0)) });
+      }
       if (msg.type === 'cdpClick') {
         await attach(tabId);
         await click(tabId, msg.x, msg.y);

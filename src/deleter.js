@@ -139,32 +139,41 @@ window.GPDD = window.GPDD || {};
         }
 
         const bin = visibleBin();
-        if (!bin || !(await clickElement(bin))) {
+        if (!bin) {
           missed.push(id);
           continue;
         }
 
-        // Google Photos usually trashes straight away; a confirm dialog only
-        // turns up in some cases, so it is handled when it appears. Success is
-        // the photo leaving the screen - not the dialog, and not the button,
-        // which is shared with the next photo the carousel slides in.
-        let confirmed = false;
-        let gone = false;
-        for (let i = 0; i < 25 && !gone; i++) {
-          await sleep(200);
-          if (!confirmed) {
-            const c = findConfirm();
-            if (c && c.button) {
-              log(`confirm dialog: "${c.label}"`);
-              await clickElement(c.button);
-              confirmed = true;
-              continue;
-            }
-          }
-          if (centreKey() !== id) gone = true;
+        // Confirmation comes from the network, not the page: /photo/<id> looks
+        // the same whether the photo is binned or not, the view does not move,
+        // and no snackbar is emitted. Opening the photo fires a fixed set of
+        // batchexecute rpcids for it; the click fires ones outside that set.
+        // Measured: open-only gave VrseUb/xPf9xf/CuHOKd, and the click added
+        // nQy5td, yQelMe and SXol3b on top - on a real delete and on a re-bin
+        // of an already-binned photo alike.
+        const before = await bg('netLog', { id, since: 0 });
+        const seen = new Set(before.rows.map((r) => r.rpcids));
+        const clickedAt = Date.now();
+        if (!(await clickElement(bin))) {
+          missed.push(id);
+          continue;
         }
-        if (!gone) {
-          log(`${id.slice(-8)} did not leave the screen after "Move to bin" - stopping`);
+
+        let confirmedBy = null;
+        for (let i = 0; i < 25 && !confirmedBy; i++) {
+          await sleep(200);
+          // A confirm dialog only turns up in some cases; handle it if it does.
+          const c = findConfirm();
+          if (c && c.button) {
+            log(`confirm dialog: "${c.label}"`);
+            await clickElement(c.button);
+          }
+          const after = await bg('netLog', { id, since: clickedAt });
+          const hit = after.rows.find((r) => r.rpcids && !seen.has(r.rpcids) && r.status === 200);
+          if (hit) confirmedBy = hit.rpcids;
+        }
+        if (!confirmedBy) {
+          log(`${id.slice(-8)} - "Move to bin" produced no request, stopping before it silently does nothing`);
           break;
         }
 
