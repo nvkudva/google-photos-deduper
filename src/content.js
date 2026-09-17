@@ -6,7 +6,10 @@ window.GPDD = window.GPDD || {};
   window.__gpddBooted = true;
 
   const ui = overlay.mount();
-  const state = { groups: [], toDelete: new Set(), running: false, stop: false };
+  const state = {
+    groups: [], toDelete: new Set(), dismissed: new Set(), runningIds: new Set(),
+    running: false, stop: false,
+  };
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg && msg.type === 'togglePanel') ui.toggle();
@@ -51,6 +54,27 @@ window.GPDD = window.GPDD || {};
     ui.del.disabled = !n || state.running;
     ui.dellbl.textContent = n ? `Move ${n} to bin` : 'Move selected to bin';
   }
+
+  // A skipped group keeps its photos in the store and in the results - it is
+  // only taken out of the selection, so nothing is lost by skipping it.
+  ui.onGroupSkip = (g) => {
+    g.items.forEach((it) => { state.dismissed.add(it.id); state.toDelete.delete(it.id); });
+    refresh();
+  };
+  ui.onGroupUndoSkip = (g) => {
+    g.items.forEach((it) => {
+      state.dismissed.delete(it.id);
+      if (it.id !== g.keeperId) state.toDelete.add(it.id);
+    });
+    refresh();
+  };
+  // Bins this card's marked duplicates only, leaving the rest of the selection
+  // exactly as it is.
+  ui.onGroupBin = (g) => {
+    if (state.running) return;
+    const ids = g.items.filter((it) => it.id !== g.keeperId && state.toDelete.has(it.id)).map((it) => it.id);
+    if (ids.length) runDelete(ids, { partial: true });
+  };
 
   // The sparkline behind the range scrubber is drawn from whatever has already
   // been scanned, so it is empty on a first run and fills in from then on.
@@ -156,16 +180,20 @@ window.GPDD = window.GPDD || {};
     refresh();
   };
 
-  async function runDelete() {
+  async function runDelete(ids, { partial = false } = {}) {
+    const targetIds = ids || [...state.toDelete];
+    const shownBefore = state.shown;
     state.running = true; state.stop = false;
+    state.runningIds = new Set(targetIds);
     ui.scan.disabled = true; ui.stop.disabled = false; refresh();
     ui.setWarn('');
-    ui.setStatus('Deleting…');
+    ui.setBusy(true);
+    ui.setStatus(`Deleting ${targetIds.length}…`);
     let r = null;
     let failed = null;
     try {
       r = await api.run({
-        targetIds: [...state.toDelete],
+        targetIds,
         shouldStop: () => state.stop,
         onProgress: (p) => {
           if (p.log) return ui.addLog(p.log);
@@ -181,6 +209,8 @@ window.GPDD = window.GPDD || {};
       ui.setWarn(failed);
     } finally {
       state.running = false;
+      state.runningIds = new Set();
+      ui.setBusy(false);
       ui.scan.disabled = false;
       ui.stop.disabled = true;
       // Every confirmed deletion is already out of the store, so the cards have
@@ -196,13 +226,25 @@ window.GPDD = window.GPDD || {};
       // that was skipped is still in the store, so it is still in the rebuilt
       // groups.
       const pending = r ? [...r.skipped, ...r.remaining] : [];
-      if (pending.length) reselect(pending);
+      // A card-level run must not narrow the selection down to that one card,
+      // so it keeps the selection regroup() just rebuilt and only restores the
+      // pages that were on screen before.
+      if (partial) {
+        if (shownBefore > state.shown) {
+          const from = state.shown;
+          state.shown = Math.min(state.groups.length, shownBefore);
+          overlay.addSelection(state.groups, state, from, state.shown);
+        }
+        refresh();
+      } else if (pending.length) {
+        reselect(pending);
+      }
 
       // regroup() rewrites the status line, so the outcome goes on last.
       ui.setStatus(
         (failed ? `Delete stopped: ${failed}` : `Moved ${r.deleted} to the bin — recoverable there.`) +
           (r && r.alreadyBinned ? ` ${r.alreadyBinned} were already there.` : '') +
-          (pending.length ? ` ${pending.length} left — click again to carry on.` : '')
+          (pending.length ? ` ${pending.length} left${partial ? ' in that group.' : ' — click again to carry on.'}` : '')
       );
     }
   }

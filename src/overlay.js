@@ -291,6 +291,35 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .preview b { display: block; margin-top: 6px; font: 400 var(--t1)/1.4 var(--ui);
   color: var(--fg-3); text-align: center; }
 
+/* One wheel, shown wherever the panel needs to say it is working: the footer
+   button, the status line, and the card whose own button started the run. */
+@keyframes gpdd-spin { to { transform: rotate(360deg); } }
+.spin { display: none; flex: 0 0 auto; width: 13px; height: 13px; border-radius: 50%;
+  border: 2px solid currentColor; border-top-color: transparent;
+  animation: gpdd-spin .7s linear infinite; }
+.srow { display: flex; align-items: center; gap: var(--s2); }
+.srow .status { flex: 1 1 auto; }
+.panel.busy .srow > .spin, .panel.busy .ft .del .spin { display: block; }
+.panel.busy .ft .del svg { display: none; }
+.gact button.working .spin { display: block; }
+
+/* Per-group actions: deal with one card without touching the rest of the
+   selection. */
+.gact { display: flex; align-items: center; gap: var(--s1); margin-left: auto; }
+.gact button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border: 1px solid transparent; border-radius: 999px; cursor: pointer;
+  font: 500 var(--t1)/1.2 var(--ui); background: transparent; color: var(--fg-3); }
+.gact button:hover:not(:disabled) { background: var(--chrome); color: var(--fg); }
+.gact .gbin { color: var(--gone); }
+.gact .gbin:hover:not(:disabled) { background: var(--gone-soft); color: var(--gone); }
+.gact button:disabled { opacity: .38; cursor: default; }
+.gact button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grp.skipped { opacity: .6; }
+.grp.skipped h4 { margin-bottom: 0; }
+.panel.maxed .grp.skipped { display: block; }
+.panel.maxed .grp.skipped h4 { flex: 1 1 auto; flex-direction: row; align-items: center;
+  border-right: 0; padding-right: 0; }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 `;
 
@@ -328,7 +357,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       <button class="act scan">Scan</button>
     </div>
     <div class="bar"><i></i></div>
-    <div class="status">Idle.</div>
+    <div class="srow"><span class="spin" aria-hidden="true"></span><div class="status">Idle.</div></div>
     <div class="log"></div>
     </div>
     <div class="results"></div>
@@ -336,7 +365,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   <div class="ft">
     <div class="row">
       <span class="hint">Recoverable from the bin.</span>
-      <button class="act danger del" disabled><span class="dellbl">Move selected to bin</span></button>
+      <button class="act danger del" disabled><span class="spin" aria-hidden="true"></span><span class="dellbl">Move selected to bin</span></button>
     </div>
   </div>
 </div>
@@ -622,6 +651,13 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       ui.status.textContent = t;
       ui.scanmsg.textContent = t;
     };
+    // Deleting has no percentage worth showing - it is a handful of requests,
+    // not a per-photo walk - so the wheel says "working" and the status line
+    // carries the count.
+    ui.setBusy = (on) => {
+      ui.panel.classList.toggle('busy', on);
+      ui.panel.setAttribute('aria-busy', on ? 'true' : 'false');
+    };
     ui.setBar = (pct) => (ui.bar.style.width = Math.max(0, Math.min(100, pct)) + '%');
     ui.addLog = (t) => {
       ui.log.classList.add('on');
@@ -821,12 +857,50 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   const PAGE = 200;
 
   function addSelection(groups, state, from, to) {
+    if (!state.dismissed) state.dismissed = new Set();
     for (let i = from; i < to; i++) {
       const g = groups[i];
       g.items.forEach((it) => {
-        if (it.id !== g.keeperId) state.toDelete.add(it.id);
+        if (it.id !== g.keeperId && !state.dismissed.has(it.id)) state.toDelete.add(it.id);
       });
     }
+  }
+
+  function wheel() {
+    const s = document.createElement('span');
+    s.className = 'spin';
+    s.setAttribute('aria-hidden', 'true');
+    return s;
+  }
+
+  // A card's own buttons: skip it, or bin just its duplicates. A skipped card
+  // collapses to its heading and can be brought back, rather than vanishing -
+  // a group that disappeared would look like photos had been deleted.
+  function groupActions(ui, g, state) {
+    const bar = document.createElement('div');
+    bar.className = 'gact';
+    const marked = g.items.filter((it) => it.id !== g.keeperId && state.toDelete.has(it.id));
+    const skip = document.createElement('button');
+    skip.type = 'button';
+    skip.className = 'gskip';
+    skip.textContent = 'Skip';
+    skip.title = 'Leave this group alone';
+    skip.disabled = !!state.running;
+    skip.onclick = () => ui.onGroupSkip && ui.onGroupSkip(g);
+    const bin = document.createElement('button');
+    bin.type = 'button';
+    bin.className = 'gbin';
+    bin.disabled = !marked.length || !!state.running;
+    bin.title = marked.length
+      ? `Move ${marked.length} of these to the bin now — recoverable from the bin`
+      : 'Nothing in this group is marked for the bin';
+    if (state.running && state.runningIds && g.items.some((it) => state.runningIds.has(it.id))) {
+      bin.classList.add('working');
+    }
+    bin.append(wheel(), document.createTextNode(marked.length ? `Move ${marked.length} to bin` : 'Move to bin'));
+    bin.onclick = () => ui.onGroupBin && ui.onGroupBin(g);
+    bar.append(skip, bin);
+    return bar;
   }
 
   function renderGroups(ui, groups, state, onChange) {
@@ -837,6 +911,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     }
     // Maximised tiles are 200px, so they need a bigger render than the 144px
     // grid thumbnail, and the hover preview is redundant at that size.
+    if (!state.dismissed) state.dismissed = new Set();
     const maxed = !!(ui.isMaxed && ui.isMaxed());
     const live = liveThumbs();
     let broken = 0;
@@ -854,6 +929,22 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       date.textContent = when;
       h.append(title, date);
       box.append(h);
+      if (g.items.every((it) => state.dismissed.has(it.id))) {
+        box.className = 'grp skipped';
+        title.textContent = `${g.items.length} similar photos · skipped`;
+        const bar = document.createElement('div');
+        bar.className = 'gact';
+        const undo = document.createElement('button');
+        undo.type = 'button';
+        undo.textContent = 'Undo skip';
+        undo.disabled = !!state.running;
+        undo.onclick = () => ui.onGroupUndoSkip && ui.onGroupUndoSkip(g);
+        bar.append(undo);
+        h.append(bar);
+        frag.append(box);
+        return;
+      }
+      h.append(groupActions(ui, g, state));
       const tiles = document.createElement('div');
       tiles.className = 'tiles';
       const keepItem = (item) => {
