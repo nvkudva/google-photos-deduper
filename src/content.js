@@ -174,7 +174,7 @@ window.GPDD = window.GPDD || {};
 
   ui.reset.onclick = async () => {
     await store.clear();
-    state.groups = []; state.toDelete = new Set();
+    state.groups = []; state.toDelete = new Set(); state.dismissed = new Set();
     ui.setBar(0); ui.setStatus('Cleared. Nothing in Google Photos was changed.');
     await refreshHistogram();
     refresh();
