@@ -20,15 +20,13 @@ window.GPDD = window.GPDD || {};
 :host {
   all: initial;
   color-scheme: dark;
-  /* Deliberately not Google Photos' own palette: the panel is a tool docked
-     beside the page, not a part of it. Cooler slate surfaces, amber accent. */
-  --bg: #101216; --raised: #171a1f; --sunken: #0a0c0e; --chrome: #0c0e11;
-  --line: #262c34; --hair: #1b2026;
-  --fg: #e6e9ed; --fg-2: #9aa3ad; --fg-3: #6f7883;
-  --accent: #f0b429; --accent-ink: #2a1c00; --accent-soft: rgba(240,180,41,.13);
+  --bg: #1b1c1e; --raised: #232529; --sunken: #141517; --chrome: #232529;
+  --line: #34373c; --hair: #2b2e33;
+  --fg: #e8eaed; --fg-2: #a3aab1; --fg-3: #7c838a;
+  --accent: #8ab4f8; --accent-ink: #12233a; --accent-soft: rgba(138,180,248,.12);
   --keep: #81c995; --gone: #f28b82; --gone-soft: rgba(242,139,130,.12); --note: #fdd663;
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
-  --r1: 3px; --r2: 4px; --r3: 6px;
+  --r1: 6px; --r2: 10px; --r3: 14px;
   --t1: 11px; --t2: 12px; --t3: 13px; --t4: 15px;
   /* Exactly the stack photos.google.com sets on its own body, so the panel
      renders in the same face as the page it sits on. */
@@ -38,16 +36,11 @@ window.GPDD = window.GPDD || {};
      back to the browser default. */
   font: 400 var(--t3)/1.5 var(--ui);
 }
-/* Docked to the right edge, full height, square - an inspector rail rather
-   than a floating rounded card. */
-.panel { position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-height: none;
+.panel { position: fixed; right: var(--s4); bottom: var(--s4); width: 380px; max-height: 78vh;
   display: flex; flex-direction: column; z-index: 2147483647;
   font: 400 var(--t3)/1.5 var(--ui); color: var(--fg);
-  background: var(--bg); border: 0; border-left: 1px solid var(--line); border-radius: 0;
-  box-shadow: -10px 0 40px rgba(0,0,0,.5); overflow: hidden; }
-/* Collapsed, the rail drops to its title strip in the bottom corner. */
-.panel.collapsed { top: auto; bottom: 0; height: auto;
-  border-top: 1px solid var(--line); box-shadow: -6px -6px 24px rgba(0,0,0,.45); }
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--r3);
+  box-shadow: 0 18px 48px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.4); overflow: hidden; }
 
 .hd { display: flex; align-items: center; gap: var(--s1); padding: 10px 10px 10px var(--s4);
   background: var(--chrome); border-bottom: 1px solid var(--hair); }
@@ -151,22 +144,18 @@ input[type=number]:focus { outline: none; border-color: var(--accent); box-shado
 input[type=checkbox] { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
 
 .row { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); }
-/* Primary action sits at the top-left of the rail, not in a call-to-action
-   block below the settings. */
-.row.tools { margin: 0 0 var(--s3); padding-bottom: var(--s3); border-bottom: 1px solid var(--hair); }
-button.act { flex: 0 0 auto; padding: 7px 14px; border: 1px solid transparent; border-radius: var(--r2);
-  cursor: pointer; font: 500 var(--t2)/1.2 var(--ui); letter-spacing: .01em;
-  background: var(--accent); color: var(--accent-ink); }
-button.act:hover:not(:disabled) { background: #ffc849; }
-button.act.sec { background: transparent; color: var(--fg-2); border-color: var(--line); }
-button.act.sec:hover:not(:disabled) { background: var(--raised); border-color: #3a424c; color: var(--fg); }
+button.act { flex: 0 0 auto; padding: 8px 16px; border: 1px solid transparent; border-radius: 999px;
+  cursor: pointer; font: 500 var(--t3)/1.2 var(--ui); background: var(--accent); color: var(--accent-ink); }
+button.act:hover:not(:disabled) { background: #a3c5fa; }
+button.act.sec { background: transparent; color: var(--accent); border-color: #474b53; }
+button.act.sec:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
 button.act.ghost { background: transparent; color: var(--fg-3); border-color: transparent; padding: 8px 12px; }
 button.act.ghost:hover:not(:disabled) { background: var(--gone-soft); color: var(--gone); }
 button.act.danger { background: var(--gone); color: #3a1411; }
 button.act.danger:hover:not(:disabled) { background: #f5a49d; }
 button.act:disabled { opacity: .38; cursor: default; }
 button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.scan { min-width: 84px; }
+.scan { min-width: 92px; }
 .reset { margin-left: auto; }
 
 .bar { height: 3px; background: #2c2f34; border-radius: 999px; overflow: hidden; margin: var(--s4) 0 var(--s2); }
@@ -219,9 +208,9 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 
 /* Inset from every edge so the maximised state reads as a popup over Google
    Photos rather than a replacement for it. */
-.panel.maxed { inset: min(48px, 5vh) min(64px, 5vw); width: auto; height: auto; max-height: none;
-  border: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: var(--r3);
-  box-shadow: 0 32px 80px rgba(0,0,0,.7); }
+.panel.maxed { inset: min(48px, 5vh) min(64px, 5vw); width: auto; max-height: none;
+  border: 1px solid var(--hair); border-radius: var(--r2);
+  box-shadow: 0 32px 80px rgba(0,0,0,.65); }
 .panel.maxed .hd { padding: 12px var(--s3) 12px var(--s5); }
 .panel.maxed .body { padding: 0 var(--s5) var(--s5); }
 .panel.maxed .controls { position: sticky; top: 0; z-index: 2; background: var(--bg);
@@ -293,11 +282,6 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   <div class="body">
     <div class="controls">
     <div class="warn" style="display:none"></div>
-    <div class="row tools">
-      <button class="act scan">Sweep</button>
-      <button class="act sec stop" disabled>Cancel</button>
-      <button class="act ghost reset">Clear index</button>
-    </div>
     <div class="range">
       <div class="top">
         <span class="lbl">Range</span>
@@ -318,8 +302,13 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     </div>
     <div class="fields">
       <label class="field"><span class="lbl">Similarity</span><input type="range" class="sim" min="70" max="100" value="92"><b class="simv">92%</b></label>
-      <label class="field"><span class="lbl">Cap per sweep</span><input type="number" class="cap" value="2000" min="50" step="50"><span class="unit">photos</span></label>
+      <label class="field"><span class="lbl">Scan at most</span><input type="number" class="cap" value="2000" min="50" step="50"><span class="unit">photos</span></label>
       <label class="field"><span class="lbl">Include videos</span><input type="checkbox" class="vid"></label>
+    </div>
+    <div class="row">
+      <button class="act scan">Scan</button>
+      <button class="act sec stop" disabled>Stop</button>
+      <button class="act ghost reset">Reset</button>
     </div>
     <div class="bar"><i></i></div>
     <div class="status">Idle.</div>
@@ -329,8 +318,8 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   </div>
   <div class="ft">
     <div class="row">
-      <span class="hint">Everything binned stays recoverable in Google Photos.</span>
-      <button class="act danger del" disabled><span class="dellbl">Bin selected</span></button>
+      <span class="hint">Recoverable from the bin.</span>
+      <button class="act danger del" disabled><span class="dellbl">Move selected to bin</span></button>
     </div>
   </div>
 </div>
