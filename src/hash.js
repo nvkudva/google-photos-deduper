@@ -28,9 +28,11 @@ window.GPDD = window.GPDD || {};
   // tile captured before its thumbnail painted. It carries no information and
   // sits within threshold of every other flat crop, which chains them into one
   // enormous bogus group. Such rows are purged and re-hashed, not kept.
+  // Byte at a time off the same table hamming() uses. The per-character
+  // parseInt/toString/regex version cost 750ms over 200k rows in degenerate().
   const popcount = (hex) => {
     let n = 0;
-    for (const c of hex) n += (parseInt(c, 16).toString(2).match(/1/g) || []).length;
+    for (let i = 0; i < hex.length; i += 2) n += POP[parseInt(hex.slice(i, i + 2), 16)];
     return n;
   };
   const degenerate = (hex) => {
@@ -42,9 +44,19 @@ window.GPDD = window.GPDD || {};
     // had no vertical structure at all - flat scans hashed to 0101010101010101,
     // which has a healthy popcount of 8 and so passed the count test, then
     // matched every other such scan at distance 0.
-    const rows = new Set();
-    for (let i = 0; i < 16; i += 2) rows.add(hex.slice(i, i + 2));
-    return rows.size <= 2;
+    // Counts distinct rows without allocating a Set per call - this runs once
+    // per row over the whole store every time the results are regrouped.
+    let a = -1;
+    let b = -1;
+    let seen = 0;
+    for (let i = 0; i < 16; i += 2) {
+      const v = parseInt(hex.slice(i, i + 2), 16);
+      if (v === a || v === b) continue;
+      if (seen === 0) { a = v; seen = 1; continue; }
+      if (seen === 1) { b = v; seen = 2; continue; }
+      return false; // a third distinct row is enough structure
+    }
+    return true;
   };
 
   const ask = (msg) =>

@@ -19,11 +19,23 @@ window.GPDD = window.GPDD || {};
   // found 460 of them, missing 18 at four and five bits apart.
   const BAND_WIDTH = 2; // hex chars
   const BANDS = 8;
-  // A band value shared by more comparisons than this is a pattern so common it
-  // says nothing; the exact-hash pass still covers identical photos inside it.
-  const MAX_BUCKET = 4000;
+  // A band key is 8 bits, so there are only 256 of them and bucket size grows
+  // linearly with the library: the worst bucket is ~6.5k at 200k photos and
+  // ~16k at 500k, where one bucket alone would be 130M comparisons. The cap
+  // bounds that, and anything it skips is reported rather than dropped quietly.
+  const MAX_BUCKET = 20000;
+  // Comparisons between yields. Measured over a simulated 200k library: 20e6
+  // still blocked the main thread for 221ms at a time, 4e6 holds the worst
+  // block to 31ms and costs 23% wall clock (3.9s -> 4.8s). Responsiveness wins;
+  // this runs on every nudge of the similarity slider.
+  const CHUNK = 4e6;
 
-  function group(items, { similarity = 90 } = {}) {
+  const breathe = () => new Promise((r) => setTimeout(r, 0));
+
+  // Async because at 200k photos the banding pass is ~750M comparisons and
+  // several seconds; run straight through it would freeze the page on every
+  // nudge of the similarity slider.
+  async function group(items, { similarity = 90, onProgress = () => {} } = {}) {
     const pool = items.filter(
       // Videos are always out. Their hash comes from the poster frame, so a
       // match says one still looked alike - too little to bin a clip on.
@@ -31,6 +43,7 @@ window.GPDD = window.GPDD || {};
     );
     const maxD = maxDistance(similarity);
     const n = pool.length;
+    let capped = 0;
 
     // Each hash is packed into two 32-bit halves once. The banding pass runs
     // hundreds of millions of comparisons at 200k photos, and hamming() reparses
@@ -63,10 +76,18 @@ window.GPDD = window.GPDD || {};
       if (ra !== rb) parent[ra] = rb;
     };
 
-    const pairsIn = (list) => {
+    let since = 0;
+    let done = 0;
+    const pairsIn = async (list) => {
       for (let a = 0; a < list.length; a++) {
         for (let b = a + 1; b < list.length; b++) {
           if (dist(list[a], list[b]) <= maxD) union(list[a], list[b]);
+        }
+        since += list.length - a - 1;
+        if (since >= CHUNK) {
+          since = 0;
+          onProgress({ done });
+          await breathe();
         }
       }
     };
@@ -95,9 +116,12 @@ window.GPDD = window.GPDD || {};
           buckets.get(key).push(k);
         }
         for (const list of buckets.values()) {
-          if (list.length < 2 || list.length > MAX_BUCKET) continue;
-          pairsIn(list);
+          if (list.length < 2) continue;
+          if (list.length > MAX_BUCKET) { capped++; continue; }
+          await pairsIn(list);
         }
+        done = band + 1;
+        onProgress({ done });
       }
 
       // Same capture day. Redundant while maxD is 7 or less, but above that the
@@ -110,7 +134,7 @@ window.GPDD = window.GPDD || {};
           if (!byDay.has(d)) byDay.set(d, []);
           byDay.get(d).push(k);
         }
-        for (const list of byDay.values()) pairsIn(list);
+        for (const list of byDay.values()) await pairsIn(list);
       }
     }
 
@@ -152,7 +176,8 @@ window.GPDD = window.GPDD || {};
         out.push({ keeperId: sorted[0].id, items: sorted });
       }
     }
-    return out.sort((a, b) => b.items.length - a.items.length);
+    out.sort((a, b) => b.items.length - a.items.length);
+    return { groups: out, capped };
   }
 
   window.GPDD.grouping = { group, maxDistance };

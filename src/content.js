@@ -61,9 +61,20 @@ window.GPDD = window.GPDD || {};
   async function regroup() {
     const items = await store.allItems();
     ui.range.setHistogram(items);
-    state.groups = grouping.group(items, {
+    if (items.length > 20000) ui.setStatus(`Grouping ${items.length} photos…`);
+    const res = await grouping.group(items, {
       similarity: Number(ui.sim.value),
+      onProgress: ({ done }) => {
+        if (items.length > 20000) ui.setBar(Math.round((done / 8) * 100));
+      },
     });
+    state.groups = res.groups;
+    if (res.capped) {
+      ui.setWarn(
+        `${res.capped} band${res.capped === 1 ? '' : 's'} of near-identical photos were too large to compare ` +
+          'exhaustively, so a few matches inside them may be missing. Identical photos are still grouped.'
+      );
+    }
     // Only the first page is selected. The rest are selected as they are shown,
     // so the delete count never covers groups that cannot be looked at.
     state.shown = Math.min(state.groups.length, overlay.PAGE);
