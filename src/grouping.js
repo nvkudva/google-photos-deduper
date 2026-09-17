@@ -64,13 +64,37 @@ window.GPDD = window.GPDD || {};
       groups.get(root).push(i);
     }
 
-    return [...groups.values()]
-      .filter((g) => g.length > 1)
-      .map((g) => {
-        const sorted = g.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        return { keeperId: sorted[0].id, items: sorted };
-      })
-      .sort((a, b) => b.items.length - a.items.length);
+    // Union-find merges transitively, so A~B and B~C put A and C together even
+    // when A and C are nothing alike. Each merged set is re-clustered around its
+    // keeper: everything shown next to a photo is within maxD of that photo, not
+    // of some chain of intermediates.
+    const tighten = (list) => {
+      const rest = list.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      const out = [];
+      while (rest.length) {
+        const keeper = rest.shift();
+        const members = [keeper];
+        for (let k = rest.length - 1; k >= 0; k--) {
+          if (hash.hamming(keeper.hash, rest[k].hash) <= maxD) {
+            members.push(rest[k]);
+            rest.splice(k, 1);
+          }
+        }
+        out.push(members);
+      }
+      return out;
+    };
+
+    const out = [];
+    for (const g of groups.values()) {
+      if (g.length < 2) continue;
+      for (const c of tighten(g)) {
+        if (c.length < 2) continue;
+        const sorted = c.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        out.push({ keeperId: sorted[0].id, items: sorted });
+      }
+    }
+    return out.sort((a, b) => b.items.length - a.items.length);
   }
 
   window.GPDD.grouping = { group, maxDistance };
