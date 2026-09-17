@@ -33,6 +33,7 @@ window.GPDD = window.GPDD || {};
     const seenThisRun = new Set();
 
     let added = 0;
+    let skipped = 0; // crops rejected as flat - see hash.degenerate
     let sanityChecked = false;
     let idleRounds = 0;
     let lastTop = -1;
@@ -75,6 +76,7 @@ window.GPDD = window.GPDD || {};
         known.add(t.id);
         rows.push({ id: t.id, kind: t.kind, ts: t.ts, day: t.day, thumb: t.thumb, hash: hashes[i] });
       });
+      skipped += cand.length - rows.length;
       if (!rows.length) return 0;
 
       if (!sanityChecked && rows.length >= 6) {
@@ -104,6 +106,7 @@ window.GPDD = window.GPDD || {};
       onProgress({
         scanned: known.size,
         added,
+        skipped,
         pct: Math.min(100, Math.round((scroller.scrollTop / Math.max(1, scroller.scrollHeight - scroller.clientHeight)) * 100)),
       });
 
@@ -122,8 +125,8 @@ window.GPDD = window.GPDD || {};
       await sleep(650);
     }
 
-    await store.setMeta('lastScan', { at: Date.now(), scanned: known.size });
-    return { scanned: known.size, added };
+    await store.setMeta('lastScan', { at: Date.now(), scanned: known.size, skipped });
+    return { scanned: known.size, added, skipped };
   }
 
   window.GPDD.scanner = { scan };

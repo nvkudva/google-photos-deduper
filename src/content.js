@@ -64,7 +64,7 @@ window.GPDD = window.GPDD || {};
     ui.setWarn('');
     ui.setStatus('Scanning… keep this tab visible; Google Photos stops rendering when it is hidden.');
     try {
-      await scanner.scan({
+      const res = await scanner.scan({
         maxItems: Number(ui.cap.value) || Infinity,
         shouldStop: () => state.stop,
         // The panel is hidden for the instant the screenshot is taken, so it
@@ -76,10 +76,20 @@ window.GPDD = window.GPDD || {};
         onProgress: (p) => {
           if (p.stalled) return ui.setStatus('Paused — this tab must stay visible for Google Photos to render.');
           ui.setBar(p.pct || 0);
-          ui.setStatus(`Scanning… ${p.scanned} photos hashed`);
+          ui.setStatus(`Scanning… ${p.scanned} photos hashed` + (p.skipped ? ` · ${p.skipped} blank crops retried` : ''));
         },
       });
       await regroup();
+      // A few blank crops are normal - a tile can be captured mid-paint and is
+      // retried. A high rate means the scan is outrunning the page, and the
+      // photos behind those crops are silently missing from the results.
+      const offered = res.added + res.skipped;
+      if (offered && res.skipped / offered > 0.15) {
+        ui.setWarn(
+          `${res.skipped} of ${offered} tiles were captured before their thumbnail loaded and could not be hashed. ` +
+            'Those photos are not in the results. Scan again to pick them up, and keep the tab in the foreground while it runs.'
+        );
+      }
     } catch (e) {
       ui.setWarn(String(e.message || e));
       ui.setStatus('Scan stopped.');
