@@ -20,9 +20,23 @@ window.GPDD = window.GPDD || {};
   const { sel, store } = window.GPDD;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  // Every call is bounded. An MV3 service worker can be evicted mid-run, and a
+  // sendMessage whose callback never fires leaves the promise pending for good:
+  // the run stops with no error, no progress and nothing in the log. A rejection
+  // instead becomes a failed attempt, which is retried and then skipped.
+  const BG_TIMEOUT = 10000;
   const bg = (type, payload = {}) =>
     new Promise((res, rej) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        rej(new Error(`the extension did not answer "${type}" within ${BG_TIMEOUT / 1000}s`));
+      }, BG_TIMEOUT);
       chrome.runtime.sendMessage({ type, ...payload }, (r) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         if (chrome.runtime.lastError) return rej(new Error(chrome.runtime.lastError.message));
         if (r && r.error) return rej(new Error(r.error));
         res(r);
@@ -107,6 +121,12 @@ window.GPDD = window.GPDD || {};
   // One photo: open it, click Move to bin, wait for the app to react. Returns
   // 'done', or why it did not, so the caller can decide about retrying.
   async function attempt(id, shouldStop, log) {
+    // Everything this attempt sees is measured from here. Using the whole
+    // history of the photo instead was a false-negative generator: after it has
+    // been opened once, every rpcid it uses is already on record, so nothing
+    // after the click can look new and a deletion that really happened reads as
+    // a skip. A retry opens the photo a second time, so it hit this every time.
+    const startedAt = Date.now();
     if (!(await showPhoto(id, shouldStop))) return 'did not open';
 
     const bin = visibleBin();
@@ -133,19 +153,25 @@ window.GPDD = window.GPDD || {};
     // request, so the combined string "yQelMe,CuHOKd" looked new even though
     // CuHOKd had been seen on its own - which is what made a read confirm a
     // deletion.
-    const before = await bg('netLog', { id, since: 0 });
+    const before = await bg('netLog', { id, since: startedAt });
     const seen = new Set(before.rows.flatMap((r) => r.rpcids.split(',')));
     const clickedAt = Date.now();
     if (!(await clickElement(bin))) return 'the button moved out of reach';
 
+    let confirmClicked = false;
     for (let i = 0; i < 25; i++) {
       if (shouldStop()) return 'stopped';
       await sleep(200);
-      // A confirm dialog only turns up in some cases; handle it if it does.
-      const c = findConfirm();
-      if (c && c.button) {
-        log(`confirm dialog: "${c.label}"`);
-        await clickElement(c.button);
+      // A confirm dialog only turns up in some cases; handle it if it does -
+      // once. Without this guard the dialog was re-clicked on every pass of the
+      // poll, up to 25 CDP round trips per photo, which stalled the run.
+      if (!confirmClicked) {
+        const c = findConfirm();
+        if (c && c.button) {
+          log(`confirm dialog: "${c.label}"`);
+          await clickElement(c.button);
+          confirmClicked = true;
+        }
       }
       const after = await bg('netLog', { id, since: clickedAt });
       const hit = after.rows.find(
@@ -160,6 +186,14 @@ window.GPDD = window.GPDD || {};
   // delete on a third go either - the useful retries are the transient ones,
   // a view that had not finished rendering or a toolbar mid-reflow.
   const ATTEMPTS = 2;
+  // No single photo may wedge a run. Every step inside attempt() is bounded, so
+  // this should never fire - but a run that stops dead with no error and no log
+  // is the worst failure this thing has, and a deadline turns any unforeseen
+  // stall into an ordinary skip. It does not cancel the work still in flight,
+  // which is why it is generous: it is a backstop, not a schedule.
+  const ATTEMPT_DEADLINE = 30000;
+  const deadline = (p, ms) =>
+    Promise.race([p, new Promise((res) => setTimeout(() => res('took too long'), ms))]);
   // Consecutive failures that mean something is broken rather than unlucky.
   // Without this a run works through the whole selection achieving nothing.
   const GIVE_UP_AFTER = 5;
@@ -209,7 +243,12 @@ window.GPDD = window.GPDD || {};
 
         let why = null;
         for (let tryNo = 1; tryNo <= ATTEMPTS; tryNo++) {
-          why = await attempt(id, shouldStop, log);
+          // A thrown attempt is just a failed one. Letting it escape aborted the
+          // whole run and lost the record of what was left to do.
+          why = await deadline(
+            attempt(id, shouldStop, log).catch((e) => String(e.message || e)),
+            ATTEMPT_DEADLINE
+          );
           if (why === 'done' || why === 'stopped') break;
           if (tryNo < ATTEMPTS) {
             log(`${id.slice(-8)}: ${why} - retrying`);
