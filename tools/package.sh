@@ -23,7 +23,7 @@ mkdir -p "$stage/src"
 cp -R src/lib src/ui "$stage/src/"
 cp src/background.js src/content.js "$stage/src/"
 
-jq '.content_scripts[0].js |= map(select(. != "src/dev-reload.js"))' manifest.json > "$stage/manifest.json"
+jq '.content_scripts[0].js |= map(select(. != "src/dev-reload.js" and . != "src/dev-shot.js"))' manifest.json > "$stage/manifest.json"
 
 # Anything referenced by the manifest must exist in the staged copy, or Chrome
 # rejects the upload with a message that does not say which file is missing.

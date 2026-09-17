@@ -38,7 +38,8 @@
         "src/ui/results.js",
         "src/ui/panel.js",
         "src/content.js",
-        "src/dev-reload.js"
+        "src/dev-reload.js",
+        "src/dev-shot.js"
       ]
     }
   ],
