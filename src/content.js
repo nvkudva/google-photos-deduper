@@ -54,7 +54,6 @@ window.GPDD = window.GPDD || {};
     ui.range.setHistogram(items);
     state.groups = grouping.group(items, {
       similarity: Number(ui.sim.value),
-      includeVideos: ui.vid.checked,
     });
     state.toDelete = new Set();
     state.groups.forEach((g) => g.items.forEach((i) => { if (i.id !== g.keeperId) state.toDelete.add(i.id); }));
@@ -72,7 +71,6 @@ window.GPDD = window.GPDD || {};
   };
 
   ui.sim.onchange = () => { ui.simv.textContent = ui.sim.value + '%'; if (state.groups.length || !state.running) regroup(); };
-  ui.vid.onchange = () => regroup();
 
   ui.scan.onclick = async () => {
     state.running = true; state.stop = false;

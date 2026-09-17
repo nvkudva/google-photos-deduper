@@ -23,9 +23,11 @@ window.GPDD = window.GPDD || {};
   // says nothing; the exact-hash pass still covers identical photos inside it.
   const MAX_BUCKET = 4000;
 
-  function group(items, { similarity = 90, includeVideos = false } = {}) {
+  function group(items, { similarity = 90 } = {}) {
     const pool = items.filter(
-      (i) => i.hash && !degenerate(i.hash) && (includeVideos || i.kind !== 'Video')
+      // Videos are always out. Their hash comes from the poster frame, so a
+      // match says one still looked alike - too little to bin a clip on.
+      (i) => i.hash && !degenerate(i.hash) && i.kind !== 'Video'
     );
     const maxD = maxDistance(similarity);
     const n = pool.length;

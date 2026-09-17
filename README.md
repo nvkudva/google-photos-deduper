@@ -140,7 +140,10 @@ this extension and nothing else.
   an album or raise the cap in stages.
 - Filename-based matching would need the info panel opened per photo — one page
   load each. Not viable at library scale, so it is not implemented.
-- Videos are hashed from their poster frame and are excluded by default.
+- Videos are always excluded. A video's hash can only come from its poster
+  frame - the still Google shows in the grid - so a match means one frame
+  looked alike, which is not enough to bin a clip on. Measured on a real
+  library: 135 videos produced 0 exact and 1 near match.
 - Selectors are all in `src/selectors.js` with a self-check that surfaces
   "Google Photos looks different" in the panel instead of silently finding
   nothing.

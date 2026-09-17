@@ -312,7 +312,6 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     <div class="fields">
       <label class="field"><span class="lbl">Similarity</span><input type="range" class="sim" min="70" max="100" value="92"><b class="simv">92%</b></label>
       <label class="field"><span class="lbl">Scan at most</span><input type="number" class="cap" value="2000" min="50" step="50"><span class="unit">photos</span></label>
-      <label class="field"><span class="lbl">Include videos</span><input type="checkbox" class="vid"></label>
     </div>
     <div class="row actions">
       <button class="act ghost reset">Reset</button>
@@ -558,7 +557,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     const ui = {
       host, root,
       panel: $('.panel'), warn: $('.warn'), sim: $('.sim'), simv: $('.simv'),
-      cap: $('.cap'), vid: $('.vid'), scan: $('.scan'), stop: $('.stop'), reset: $('.reset'),
+      cap: $('.cap'), scan: $('.scan'), stop: $('.stop'), reset: $('.reset'),
       bar: $('.bar i'), status: $('.status'), log: $('.log'), results: $('.results'),
       del: $('.del'), dellbl: $('.dellbl'), min: $('.min'),
       scanbar: $('.scanbar'), scanmsg: $('.scanbar .msg'), scanstop: $('.scanstop'),
