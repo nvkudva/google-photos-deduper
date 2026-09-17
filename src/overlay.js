@@ -156,12 +156,24 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .panel.maxed .grp h4 .when { white-space: nowrap; }
 .panel.maxed .tiles { flex: 1 1 auto; min-width: 0; align-items: flex-start; }
 .panel.maxed .tiles { gap: var(--s3); }
-.panel.maxed .tile { width: auto; height: 220px; }
+.panel.maxed .tile { width: auto; height: 240px; }
 .panel.maxed .tile img { width: auto; height: 100%; object-fit: cover; background: none; }
 .panel.maxed .tiles { align-items: flex-start; }
 .panel.maxed .mark { width: 26px; height: 26px; top: -7px; left: -7px; }
 .panel.maxed .mark svg { width: 14px; height: 14px; }
 
+/* Must outrank .panel, which the maximised state paints opaque over the whole
+   viewport; the scrim sits after it in the DOM so an equal z-index wins. */
+.scrim { position: fixed; inset: 0; z-index: 2147483647; display: none;
+  background: rgba(0,0,0,.72); align-items: center; justify-content: center; }
+.scrim.on { display: flex; }
+.modal { background: var(--raised); border: 1px solid var(--hair); border-radius: var(--r2);
+  padding: var(--s3); box-shadow: 0 24px 64px rgba(0,0,0,.6); max-width: 88vw; max-height: 88vh;
+  display: flex; flex-direction: column; gap: var(--s3); }
+.modal img { display: block; border-radius: var(--r1); object-fit: contain;
+  max-width: 84vw; max-height: 72vh; background: var(--sunken); }
+.modal .mbar { display: flex; align-items: center; gap: var(--s3); }
+.modal .mcap { flex: 1 1 auto; font-size: var(--t1); color: var(--fg-3); }
 .preview { position: fixed; z-index: 2147483646; display: none; pointer-events: none;
   background: var(--bg); border: 1px solid var(--line); border-radius: var(--r2); padding: var(--s2);
   box-shadow: 0 20px 56px rgba(0,0,0,.7); }
@@ -203,7 +215,15 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     </div>
   </div>
 </div>
-<div class="preview"><img alt=""><b></b></div>`;
+<div class="preview"><img alt=""><b></b></div>
+<div class="scrim"><div class="modal" role="dialog" aria-modal="true">
+  <img alt="">
+  <div class="mbar">
+    <span class="mcap"></span>
+    <button class="act sec mkeep" type="button">Keep this one</button>
+    <button class="act sec mclose" type="button">Close</button>
+  </div>
+</div></div>`;
 
   function mount() {
     const host = document.createElement('div');
@@ -223,6 +243,8 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       bar: $('.bar i'), status: $('.status'), log: $('.log'), results: $('.results'),
       dry: $('.dry'), del: $('.del'), min: $('.min'),
       preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
+      scrim: $('.scrim'), modalImg: $('.modal img'), modalCap: $('.mcap'),
+      mkeep: $('.mkeep'), mclose: $('.mclose'),
       max: $('.max'),
     };
 
@@ -241,6 +263,14 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       ui.syncChrome();
     };
     ui.isMaxed = () => ui.panel.classList.contains('maxed');
+    ui.closeModal = () => closeModal(ui);
+    ui.mclose.onclick = ui.closeModal;
+    // Clicking the backdrop dismisses; clicking the dialog itself must not.
+    ui.scrim.onclick = (e) => { if (e.target === ui.scrim) ui.closeModal(); };
+    root.addEventListener('keydown', (e) => { if (e.key === 'Escape') ui.closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && ui.scrim.classList.contains('on')) ui.closeModal();
+    });
     ui.syncChrome();
     ui.sim.oninput = () => (ui.simv.textContent = ui.sim.value + '%');
 
@@ -340,6 +370,36 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
     });
   }
 
+  // Maximised tiles are big enough that a hover preview would be more nuisance
+  // than help, so there it is a click instead: a fixed, centred dialog that
+  // stays put until dismissed, and carries the keeper action so clicking a
+  // photo does not lose the decision it used to make.
+  let modalSeq = 0;
+  function openModal(ui, item, onKeep) {
+    const seq = ++modalSeq;
+    ui.modalImg.onload = null;
+    ui.modalImg.src = item.thumb || ''; // cached, so the right photo shows at once
+    ui.modalCap.textContent =
+      (item.ts ? new Date(item.ts).toLocaleString() : 'date unknown') +
+      (item.kind && item.kind !== 'Photo' ? ` \u00b7 ${item.kind}` : '');
+    const big = new Image();
+    big.onload = () => {
+      if (seq === modalSeq) ui.modalImg.src = big.src;
+    };
+    big.src = bigUrl(item.thumb || '', 1600);
+    ui.mkeep.onclick = () => {
+      onKeep();
+      closeModal(ui);
+    };
+    ui.scrim.classList.add('on');
+    ui.mclose.focus();
+  }
+
+  function closeModal(ui) {
+    modalSeq++;
+    ui.scrim.classList.remove('on');
+  }
+
   // Each group renders with one keeper (green) and the rest marked for deletion
   // (red). Clicking a thumbnail promotes it to keeper; clicking the corner badge
   // toggles whether that single item is deleted.
@@ -376,12 +436,17 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
         img.src = maxed ? bigUrl(it.thumb || '', 512) : it.thumb || '';
         img.loading = 'lazy';
         img.alt = '';
-        img.title = marked ? 'Keep this one instead' : 'Keeping this one';
-        img.onclick = () => {
+        const makeKeeper = () => {
           g.items.forEach((o) => state.toDelete.add(o.id));
           state.toDelete.delete(it.id);
           onChange();
         };
+        img.title = maxed
+          ? 'Click to view full size'
+          : marked
+            ? 'Keep this one instead'
+            : 'Keeping this one';
+        img.onclick = maxed ? () => openModal(ui, it, makeKeeper) : makeKeeper;
         // The badge is the per-item toggle the old text caption used to be.
         const mark = document.createElement('button');
         mark.type = 'button';

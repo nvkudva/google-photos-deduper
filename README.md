@@ -81,10 +81,13 @@ Only then raise the cap.
    `=w144-h193-no` becomes `=w1200-h1200-no` and returns a genuinely larger
    image rather than an upscale.
 
-   For a long review, hit **⛶** in the panel header to go full page: same
-   controls and the same Dry run / Move to bin actions, but every photo at
-   230px so you can compare a whole group at a glance instead of hovering one
-   at a time. **–** / **+** collapses the panel to its title bar.
+   For a long review, hit the maximise button in the panel header to go full
+   page: same controls and the same Dry run / Move to bin actions, but every
+   group laid out as a row — count and date in the first column, photos filling
+   the rest at 240px tall and their own aspect ratio. There, **click** a photo
+   to open it centred at full size with Keep this one / Close; Escape or a click
+   outside also dismisses it. The minimise button collapses the panel to its
+   title bar.
 4. **Dry run** first — it reports what it would delete and touches nothing.
 5. **Move selected to bin** — click it twice (the button arms itself for five
    seconds rather than opening a dialog; a content script's native `confirm()`
