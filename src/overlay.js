@@ -56,7 +56,8 @@ window.GPDD = window.GPDD || {};
 .body { padding: var(--s4); overflow: auto; overscroll-behavior: contain; }
 .collapsed .body, .collapsed .ft { display: none; }
 
-.fields { background: var(--raised); border: 1px solid var(--hair); border-radius: var(--r2); padding: 0 var(--s3); }
+.fields { margin: var(--s4) 0; background: var(--raised); border: 1px solid var(--hair);
+  border-radius: var(--r2); padding: 0 var(--s3); }
 .field { display: flex; align-items: center; gap: var(--s3); min-height: 40px; color: var(--fg-2); cursor: default; }
 .field + .field { border-top: 1px solid var(--hair); }
 .field .lbl { flex: 0 0 96px; }
@@ -221,7 +222,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   margin: 0 calc(var(--s5) * -1); padding: var(--s4) var(--s5) var(--s3);
   border-bottom: 1px solid var(--hair); }
 .panel.maxed .controls > * { width: 100%; max-width: none; }
-.panel.maxed .fields { display: flex; align-items: center; padding: var(--s1) var(--s4); }
+.panel.maxed .fields { display: flex; align-items: center; margin: 0; padding: var(--s1) var(--s4); }
 .panel.maxed .field { min-height: 44px; }
 .panel.maxed .field:first-child { flex: 0 1 320px; }
 .panel.maxed .field + .field { border-top: 0; border-left: 1px solid var(--hair);
