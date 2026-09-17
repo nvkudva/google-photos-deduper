@@ -26,7 +26,12 @@ window.GPDD = window.GPDD || {};
   --line: #444746; --hair: #303133;
   --fg: #e3e3e3; --fg-2: #c4c7c5; --fg-3: #8e918f;
   --accent: #a8c7fa; --accent-ink: #062e6f; --accent-soft: rgba(168,199,250,.12);
-  --keep: #81c995; --gone: #f28b82; --gone-soft: rgba(242,139,130,.12); --note: #fdd663;
+  /* Material 3 tertiary and error, read off the page's own resolved dark
+     tokens: --gm3-sys-color-tertiary #6dd58c on #072711, --gm3-sys-color-error
+     #f2b8b5 on #601410. The old #81c995 / #f28b82 were the Material 2 pair. */
+  --keep: #6dd58c; --keep-ink: #072711;
+  --gone: #f2b8b5; --gone-ink: #601410; --gone-soft: rgba(242,184,181,.12);
+  --note: #fdd663;
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
   --r1: 8px; --r2: 12px; --r3: 16px;
   --t1: 11px; --t2: 12px; --t3: 13px; --t4: 15px;
@@ -154,8 +159,8 @@ button.act.sec { background: transparent; color: var(--accent); border-color: va
 button.act.sec:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
 button.act.ghost { background: transparent; color: var(--fg-3); border-color: transparent; padding: 8px 12px; }
 button.act.ghost:hover:not(:disabled) { background: var(--gone-soft); color: var(--gone); }
-button.act.danger { background: var(--gone); color: #3a1411; }
-button.act.danger:hover:not(:disabled) { background: #f5a49d; }
+button.act.danger { background: var(--gone); color: var(--gone-ink); }
+button.act.danger:hover:not(:disabled) { background: #f9d2d0; }
 button.act:disabled { opacity: .38; cursor: default; }
 button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .scan { min-width: 92px; }
@@ -193,13 +198,13 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .tile.keeper::after { box-shadow: inset 0 0 0 2px var(--keep); }
 .tile.bin::after { box-shadow: inset 0 0 0 2px var(--gone); }
 .tile.bin img { opacity: .45; }
-.mark { position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; padding: 0;
+.mark { position: absolute; top: 4px; left: 4px; width: 19px; height: 19px; padding: 0;
   -webkit-appearance: none; appearance: none;
   display: flex; align-items: center; justify-content: center; border-radius: 50%;
-  border: 2px solid var(--raised); cursor: pointer; color: #15201a; }
+  border: 0; cursor: pointer; }
 .mark svg { width: 12px; height: 12px; display: block; }
-.tile.keeper .mark { background: var(--keep); }
-.tile.bin .mark { background: var(--gone); color: #3a1411; }
+.tile.keeper .mark { background: var(--keep); color: var(--keep-ink); }
+.tile.bin .mark { background: var(--gone); color: var(--gone-ink); }
 .mark:hover { filter: brightness(1.12); }
 .mark:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 
@@ -244,7 +249,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .panel.maxed .tile { width: auto; height: 240px; aspect-ratio: auto; }
 .panel.maxed .tile img { width: auto; height: 100%; object-fit: cover; background: none; }
 .panel.maxed .tiles { align-items: flex-start; }
-.panel.maxed .mark { width: 26px; height: 26px; top: 6px; left: 6px; }
+.panel.maxed .mark { width: 23px; height: 23px; top: 6px; left: 6px; }
 .panel.maxed .mark svg { width: 14px; height: 14px; }
 
 /* Must outrank .panel, which the maximised state paints opaque over the whole
