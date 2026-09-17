@@ -55,6 +55,14 @@ window.GPDD = window.GPDD || {};
     refresh();
   }
 
+  ui.max.onclick = () => {
+    ui.panel.classList.remove('collapsed');
+    ui.panel.classList.toggle('maxed');
+    ui.preview.classList.remove('on');
+    ui.syncChrome();
+    refresh(); // re-renders tiles at the size the new mode needs
+  };
+
   ui.sim.onchange = () => { ui.simv.textContent = ui.sim.value + '%'; if (state.groups.length || !state.running) regroup(); };
   ui.vid.onchange = () => regroup();
 

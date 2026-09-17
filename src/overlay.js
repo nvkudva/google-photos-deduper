@@ -12,7 +12,9 @@ window.GPDD = window.GPDD || {};
   box-shadow: 0 8px 28px rgba(0,0,0,.55); overflow: hidden; }
 .hd { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #282a2d; cursor: default; }
 .hd b { font-weight: 500; font-size: 14px; flex: 1; }
-.hd button { background: none; border: 0; color: #9aa0a6; font-size: 16px; cursor: pointer; padding: 2px 6px; }
+.hd button { background: none; border: 0; color: #9aa0a6; font-size: 15px; cursor: pointer;
+  padding: 2px 7px; border-radius: 4px; line-height: 1; }
+.hd button:hover { background: #3c4043; color: #e8eaed; }
 .body { padding: 12px 14px; overflow: auto; }
 .collapsed .body, .collapsed .ft { display: none; }
 label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; color: #bdc1c6; }
@@ -32,6 +34,16 @@ button.act:disabled { opacity: .45; cursor: default; }
 .log { margin-top: 8px; max-height: 88px; overflow: auto; font: 11px/1.5 ui-monospace, monospace; color: #9aa0a6;
   background: #17181a; border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; display: none; }
 .log.on { display: block; }
+.panel.maxed { inset: 0; right: 0; bottom: 0; width: auto; max-height: none; border-radius: 0; border: 0; }
+.panel.maxed .controls { position: sticky; top: 0; z-index: 2; background: #202124;
+  padding-bottom: 10px; border-bottom: 1px solid #3c4043; }
+.panel.maxed .body { padding: 0 24px 16px; }
+.panel.maxed .tiles { gap: 14px; }
+.panel.maxed .tile { width: 230px; }
+.panel.maxed .tile img { width: 230px; height: 230px; object-fit: contain; background: #17181a; }
+.panel.maxed .tile span { font-size: 12px; margin-top: 4px; padding: 2px 0; }
+.panel.maxed .grp { padding: 16px 0; }
+.panel.maxed .grp h4 { font-size: 14px; margin-bottom: 10px; }
 .grp { border-top: 1px solid #3c4043; padding: 10px 0; }
 .grp h4 { margin: 0 0 6px; font-size: 12px; font-weight: 500; color: #bdc1c6; }
 .tiles { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -55,8 +67,9 @@ button.act:disabled { opacity: .45; cursor: default; }
 
   const HTML = `
 <div class="panel">
-  <div class="hd"><b>Google Photos DeDuper</b><button class="min">–</button></div>
+  <div class="hd"><b>Google Photos DeDuper</b><button class="max" title="Maximise">⛶</button><button class="min" title="Minimise">–</button></div>
   <div class="body">
+    <div class="controls">
     <div class="warn" style="display:none"></div>
     <label>Similarity <input type="range" class="sim" min="70" max="100" value="92"><b class="simv">92%</b></label>
     <label>Scan at most <input type="number" class="cap" value="2000" min="50" step="50"></label>
@@ -69,6 +82,7 @@ button.act:disabled { opacity: .45; cursor: default; }
     <div class="bar"><i></i></div>
     <div class="status">Idle.</div>
     <div class="log"></div>
+    </div>
     <div class="results"></div>
   </div>
   <div class="ft">
@@ -98,9 +112,25 @@ button.act:disabled { opacity: .45; cursor: default; }
       bar: $('.bar i'), status: $('.status'), log: $('.log'), results: $('.results'),
       dry: $('.dry'), del: $('.del'), min: $('.min'),
       preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
+      max: $('.max'),
     };
 
-    ui.min.onclick = () => ui.panel.classList.toggle('collapsed');
+    // Both buttons reflect their state rather than always showing one icon.
+    ui.syncChrome = () => {
+      const collapsed = ui.panel.classList.contains('collapsed');
+      const maxed = ui.panel.classList.contains('maxed');
+      ui.min.textContent = collapsed ? '+' : '–';
+      ui.min.title = collapsed ? 'Expand' : 'Minimise';
+      ui.max.textContent = maxed ? '⤡' : '⛶';
+      ui.max.title = maxed ? 'Restore' : 'Maximise';
+      ui.min.style.display = maxed ? 'none' : '';
+    };
+    ui.min.onclick = () => {
+      ui.panel.classList.toggle('collapsed');
+      ui.syncChrome();
+    };
+    ui.isMaxed = () => ui.panel.classList.contains('maxed');
+    ui.syncChrome();
     ui.sim.oninput = () => (ui.simv.textContent = ui.sim.value + '%');
 
     ui.setStatus = (t) => (ui.status.textContent = t);
@@ -208,6 +238,9 @@ button.act:disabled { opacity: .45; cursor: default; }
       ui.results.textContent = '';
       return;
     }
+    // Maximised tiles are 230px, so they need a bigger render than the 144px
+    // grid thumbnail, and the hover preview is redundant at that size.
+    const maxed = !!(ui.isMaxed && ui.isMaxed());
     const frag = document.createDocumentFragment();
     groups.slice(0, 200).forEach((g, gi) => {
       const box = document.createElement('div');
@@ -223,7 +256,7 @@ button.act:disabled { opacity: .45; cursor: default; }
         const marked = state.toDelete.has(it.id);
         t.className = 'tile ' + (marked ? 'del' : 'keep');
         const img = document.createElement('img');
-        img.src = it.thumb || '';
+        img.src = maxed ? bigUrl(it.thumb || '', 512) : it.thumb || '';
         img.loading = 'lazy';
         img.title = it.id;
         img.onclick = () => {
@@ -238,7 +271,7 @@ button.act:disabled { opacity: .45; cursor: default; }
           else state.toDelete.add(it.id);
           onChange();
         };
-        attachPreview(ui, img, it);
+        if (!maxed) attachPreview(ui, img, it);
         t.append(img, cap);
         tiles.append(t);
       });
