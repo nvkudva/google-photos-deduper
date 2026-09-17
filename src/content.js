@@ -40,7 +40,7 @@ window.GPDD = window.GPDD || {};
     overlay.renderGroups(ui, state.groups, state, refresh);
     const n = state.toDelete.size;
     ui.del.disabled = !n || state.running;
-    ui.dellbl.textContent = n ? `Move ${n} to bin` : 'Move selected to bin';
+    ui.dellbl.textContent = n ? `Bin ${n} selected` : 'Bin selected';
   }
 
   // The sparkline behind the range scrubber is drawn from whatever has already
@@ -81,7 +81,7 @@ window.GPDD = window.GPDD || {};
     ui.setScanning(true);
     const range = ui.range.get();
     ui.setStatus(
-      (range.full ? 'Scanning…' : `Scanning ${range.label}…`) +
+      (range.full ? 'Sweeping the library…' : `Sweeping ${range.label}…`) +
         ' keep this tab visible; Google Photos stops rendering when it is hidden.'
     );
     try {
@@ -100,7 +100,7 @@ window.GPDD = window.GPDD || {};
             return ui.setStatus(`Jumping to ${range.label}${at}`);
           }
           if (p.pct != null) ui.setBar(p.pct);
-          ui.setStatus(`Scanning… ${p.scanned} photos hashed` + (p.skipped ? ` · ${p.skipped} blank crops retried` : ''));
+          ui.setStatus(`Sweeping… ${p.scanned} photos hashed` + (p.skipped ? ` · ${p.skipped} blank crops retried` : ''));
         },
       });
       await regroup();
@@ -111,12 +111,12 @@ window.GPDD = window.GPDD || {};
       if (offered && res.skipped / offered > 0.15) {
         ui.setWarn(
           `${res.skipped} of ${offered} tiles were captured before their thumbnail loaded and could not be hashed. ` +
-            'Those photos are not in the results. Scan again to pick them up, and keep the tab in the foreground while it runs.'
+            'Those photos are not in the results. Sweep again to pick them up, and keep the tab in the foreground while it runs.'
         );
       }
     } catch (e) {
       ui.setWarn(String(e.message || e));
-      ui.setStatus('Scan stopped.');
+      ui.setStatus('Sweep cancelled.');
     } finally {
       state.running = false;
       ui.setScanning(false);
@@ -124,13 +124,13 @@ window.GPDD = window.GPDD || {};
     }
   };
 
-  ui.stop.onclick = () => { state.stop = true; ui.setStatus('Stopping…'); };
+  ui.stop.onclick = () => { state.stop = true; ui.setStatus('Cancelling…'); };
   ui.scanstop.onclick = () => ui.stop.onclick();
 
   ui.reset.onclick = async () => {
     await store.clear();
     state.groups = []; state.toDelete = new Set();
-    ui.setBar(0); ui.setStatus('Cleared. Nothing in Google Photos was changed.');
+    ui.setBar(0); ui.setStatus('Index cleared. Nothing in Google Photos was changed.');
     await refreshHistogram();
     refresh();
   };
@@ -175,7 +175,7 @@ window.GPDD = window.GPDD || {};
       }, 15000);
       // Kept short on purpose: a longer label reflows the footer and moves the
       // button out from under the pointer, so the confirming click misses.
-      ui.dellbl.textContent = 'Confirm delete';
+      ui.dellbl.textContent = 'Confirm';
       ui.setStatus(`Click the red button again to move ${n} to the bin. Recoverable from the bin.`);
       return;
     }
