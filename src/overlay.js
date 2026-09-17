@@ -3,81 +3,184 @@
 window.GPDD = window.GPDD || {};
 
 (() => {
+  // Inline only: the extension must render with no network of any kind.
+  const ICON = {
+    maximise: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.75 6V2.75H6"/><path d="M10 2.75h3.25V6"/><path d="M13.25 10v3.25H10"/><path d="M6 13.25H2.75V10"/></svg>',
+    restore: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.75V6H2.75"/><path d="M10 2.75V6h3.25"/><path d="M10 13.25V10h3.25"/><path d="M6 13.25V10H2.75"/></svg>',
+    minimise: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 8h8"/></svg>',
+    expand: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.75 8 6.25l3.5 3.5"/></svg>',
+    check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4 6.4 11.3 12.5 4.9"/></svg>',
+    cross: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4.6 4.6l6.8 6.8"/><path d="M11.4 4.6l-6.8 6.8"/></svg>',
+  };
+
   const CSS = `
-:host { all: initial; }
-.panel { position: fixed; right: 16px; bottom: 16px; width: 380px; max-height: 78vh;
+:host {
+  all: initial;
+  color-scheme: dark;
+  --bg: #1b1c1e; --raised: #232529; --sunken: #141517; --chrome: #232529;
+  --line: #34373c; --hair: #2b2e33;
+  --fg: #e8eaed; --fg-2: #a3aab1; --fg-3: #7c838a;
+  --accent: #8ab4f8; --accent-ink: #12233a; --accent-soft: rgba(138,180,248,.12);
+  --keep: #81c995; --gone: #f28b82; --gone-soft: rgba(242,139,130,.12); --note: #fdd663;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
+  --r1: 6px; --r2: 10px; --r3: 14px;
+  --t1: 11px; --t2: 12px; --t3: 13px; --t4: 15px;
+  --ui: 'Google Sans', Roboto, system-ui, -apple-system, sans-serif;
+}
+.panel { position: fixed; right: var(--s4); bottom: var(--s4); width: 380px; max-height: 78vh;
   display: flex; flex-direction: column; z-index: 2147483647;
-  font: 13px/1.45 'Google Sans', Roboto, system-ui, sans-serif;
-  color: #e8eaed; background: #202124; border: 1px solid #3c4043; border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0,0,0,.55); overflow: hidden; }
-.hd { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #282a2d; cursor: default; }
-.hd b { font-weight: 500; font-size: 14px; flex: 1; }
-.hd button { background: none; border: 0; color: #9aa0a6; font-size: 15px; cursor: pointer;
-  padding: 2px 7px; border-radius: 4px; line-height: 1; }
-.hd button:hover { background: #3c4043; color: #e8eaed; }
-.body { padding: 12px 14px; overflow: auto; }
+  font: 400 var(--t3)/1.5 var(--ui); color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--r3);
+  box-shadow: 0 18px 48px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.4); overflow: hidden; }
+
+.hd { display: flex; align-items: center; gap: var(--s1); padding: 10px 10px 10px var(--s4);
+  background: var(--chrome); border-bottom: 1px solid var(--hair); }
+.hd b { flex: 1; font: 500 var(--t4)/1.25 var(--ui); letter-spacing: -.01em; }
+.hd button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  padding: 0; background: none; border: 0; border-radius: var(--r1); color: var(--fg-3); cursor: pointer; }
+.hd button svg { width: 16px; height: 16px; display: block; }
+.hd button:hover { background: #33363b; color: var(--fg); }
+.hd button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.body { padding: var(--s4); overflow: auto; overscroll-behavior: contain; }
 .collapsed .body, .collapsed .ft { display: none; }
-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; color: #bdc1c6; }
-input[type=range] { flex: 1; accent-color: #8ab4f8; }
-input[type=number] { width: 84px; background: #303134; color: #e8eaed; border: 1px solid #5f6368; border-radius: 4px; padding: 4px 6px; }
-input[type=checkbox] { accent-color: #8ab4f8; }
-.row { display: flex; gap: 8px; margin-top: 12px; }
-button.act { flex: 1; padding: 9px 10px; border-radius: 18px; border: 0; cursor: pointer;
-  background: #8ab4f8; color: #202124; font-weight: 500; font-size: 13px; }
-button.act.sec { background: transparent; color: #8ab4f8; border: 1px solid #5f6368; }
-button.act.danger { background: #f28b82; color: #202124; }
-.ft button.act { min-width: 152px; white-space: nowrap; }
-button.act:disabled { opacity: .45; cursor: default; }
-.bar { height: 4px; background: #3c4043; border-radius: 2px; overflow: hidden; margin: 10px 0 4px; }
-.bar i { display: block; height: 100%; background: #8ab4f8; width: 0; transition: width .2s; }
-.status { color: #9aa0a6; font-size: 12px; min-height: 16px; }
-.log { margin-top: 8px; max-height: 88px; overflow: auto; font: 11px/1.5 ui-monospace, monospace; color: #9aa0a6;
-  background: #17181a; border-radius: 6px; padding: 6px 8px; white-space: pre-wrap; display: none; }
+
+.fields { background: var(--raised); border: 1px solid var(--hair); border-radius: var(--r2); padding: 0 var(--s3); }
+.field { display: flex; align-items: center; gap: var(--s3); min-height: 40px; color: var(--fg-2); cursor: default; }
+.field + .field { border-top: 1px solid var(--hair); }
+.field .lbl { flex: 0 0 96px; }
+.unit { color: var(--fg-3); font-size: var(--t2); }
+.simv { min-width: 34px; text-align: right; font: 500 var(--t3)/1 var(--ui);
+  color: var(--fg); font-variant-numeric: tabular-nums; }
+
+input[type=range] { flex: 1; min-width: 60px; height: 18px; margin: 0; cursor: pointer;
+  -webkit-appearance: none; appearance: none; background: transparent; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: #3b3e44; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px;
+  margin-top: -5px; border: 0; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 0 var(--accent-soft); transition: box-shadow .15s; }
+input[type=range]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 6px var(--accent-soft); }
+input[type=range]:focus { outline: none; }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 6px var(--accent-soft); }
+
+input[type=number] { width: 86px; -webkit-appearance: none; appearance: none; text-align: right;
+  background: var(--sunken); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r1);
+  padding: 6px 9px; font: 400 var(--t3)/1.2 var(--ui); font-variant-numeric: tabular-nums; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+input[type=number]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+input[type=checkbox] { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+
+.row { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); }
+button.act { flex: 0 0 auto; padding: 8px 16px; border: 1px solid transparent; border-radius: 999px;
+  cursor: pointer; font: 500 var(--t3)/1.2 var(--ui); background: var(--accent); color: var(--accent-ink); }
+button.act:hover:not(:disabled) { background: #a3c5fa; }
+button.act.sec { background: transparent; color: var(--accent); border-color: #474b53; }
+button.act.sec:hover:not(:disabled) { background: var(--accent-soft); border-color: var(--accent); }
+button.act.ghost { background: transparent; color: var(--fg-3); border-color: transparent; padding: 8px 12px; }
+button.act.ghost:hover:not(:disabled) { background: var(--gone-soft); color: var(--gone); }
+button.act.danger { background: var(--gone); color: #3a1411; }
+button.act.danger:hover:not(:disabled) { background: #f5a49d; }
+button.act:disabled { opacity: .38; cursor: default; }
+button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scan { min-width: 92px; }
+.reset { margin-left: auto; }
+
+.bar { height: 3px; background: #2c2f34; border-radius: 999px; overflow: hidden; margin: var(--s4) 0 var(--s2); }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .25s ease; }
+.status { min-height: 18px; color: var(--fg-2); font-size: var(--t2); line-height: 1.5; }
+.note { color: var(--fg-3); font-size: var(--t2); padding: var(--s2) var(--s1) 0; }
+.log { display: none; margin-top: var(--s3); max-height: 96px; overflow: auto;
+  font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg-3);
+  background: var(--sunken); border: 1px solid var(--hair); border-radius: var(--r1);
+  padding: var(--s2) 10px; white-space: pre-wrap; }
 .log.on { display: block; }
-.panel.maxed { inset: 0; right: 0; bottom: 0; width: auto; max-height: none; border-radius: 0; border: 0; }
-.panel.maxed .controls { position: sticky; top: 0; z-index: 2; background: #202124;
-  padding-bottom: 10px; border-bottom: 1px solid #3c4043; }
-.panel.maxed .body { padding: 0 24px 16px; }
-.panel.maxed .tiles { gap: 14px; }
-.panel.maxed .tile { width: 230px; }
-.panel.maxed .tile img { width: 230px; height: 230px; object-fit: contain; background: #17181a; }
-.panel.maxed .tile span { font-size: 12px; margin-top: 4px; padding: 2px 0; }
-.panel.maxed .grp { padding: 16px 0; }
-.panel.maxed .grp h4 { font-size: 14px; margin-bottom: 10px; }
-.grp { border-top: 1px solid #3c4043; padding: 10px 0; }
-.grp h4 { margin: 0 0 6px; font-size: 12px; font-weight: 500; color: #bdc1c6; }
-.tiles { display: flex; gap: 6px; flex-wrap: wrap; }
-.tile { position: relative; width: 66px; }
-.tile img { width: 66px; height: 66px; object-fit: cover; border-radius: 6px; display: block;
-  border: 2px solid transparent; background: #303134; }
-.tile.keep img { border-color: #81c995; }
-.tile.del img { border-color: #f28b82; opacity: .55; }
-.tile span { display: block; text-align: center; font-size: 10px; margin-top: 2px; color: #9aa0a6; cursor: pointer; }
+.warn { color: var(--note); background: rgba(253,214,99,.08); border: 1px solid rgba(253,214,99,.22);
+  border-left: 3px solid var(--note); border-radius: var(--r1);
+  padding: var(--s2) 10px; margin-bottom: var(--s3); font-size: var(--t2); }
+
+.results { margin-top: var(--s4); }
+.results:empty { margin-top: 0; }
+.grp { background: var(--raised); border: 1px solid var(--hair); border-radius: var(--r2);
+  padding: var(--s3); margin-bottom: var(--s2); }
+.grp h4 { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3);
+  margin: 0 0 10px; font: 500 var(--t2)/1.3 var(--ui); color: var(--fg); }
+.grp h4 .when { font-weight: 400; font-size: var(--t1); color: var(--fg-3); white-space: nowrap; }
+.tiles { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.tile { position: relative; width: 78px; height: 78px; border-radius: var(--r1); }
+.tile img { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: inherit;
+  background: #2a2d31; cursor: pointer; }
+.tile::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .12s; }
+.tile.keeper::after { box-shadow: inset 0 0 0 2px var(--keep); }
+.tile.bin::after { box-shadow: inset 0 0 0 2px var(--gone); }
+.tile.bin img { opacity: .45; }
+.mark { position: absolute; top: -5px; left: -5px; width: 22px; height: 22px; padding: 0;
+  -webkit-appearance: none; appearance: none;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  border: 2px solid var(--raised); cursor: pointer; color: #15201a; }
+.mark svg { width: 12px; height: 12px; display: block; }
+.tile.keeper .mark { background: var(--keep); }
+.tile.bin .mark { background: var(--gone); color: #3a1411; }
+.mark:hover { filter: brightness(1.12); }
+.mark:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+.ft { border-top: 1px solid var(--hair); padding: var(--s3) var(--s4); background: var(--chrome); }
+.ft .row { margin: 0; justify-content: flex-end; }
+.ft .del { min-width: 176px; }
+
+.panel.maxed { inset: 0; width: auto; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+.panel.maxed .hd { padding: 12px var(--s3) 12px var(--s5); }
+.panel.maxed .body { padding: 0 var(--s5) var(--s5); }
+.panel.maxed .controls { position: sticky; top: 0; z-index: 2; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center;
+  margin: 0 calc(var(--s5) * -1); padding: var(--s4) var(--s5) var(--s3);
+  border-bottom: 1px solid var(--hair); }
+.panel.maxed .controls > * { width: 100%; max-width: 1120px; }
+.panel.maxed .fields { display: flex; align-items: center; padding: var(--s1) var(--s4); }
+.panel.maxed .field { min-height: 44px; }
+.panel.maxed .field:first-child { flex: 0 1 320px; }
+.panel.maxed .field + .field { border-top: 0; border-left: 1px solid var(--hair);
+  margin-left: var(--s4); padding-left: var(--s4); }
+.panel.maxed .field .lbl { flex: 0 0 auto; }
+.panel.maxed .bar { margin-top: var(--s3); }
+.panel.maxed .results { max-width: 1120px; margin-left: auto; margin-right: auto; }
+.panel.maxed .ft .row { width: 100%; max-width: 1120px; margin: 0 auto; }
+.panel.maxed .grp { padding: var(--s4); margin-bottom: var(--s3); }
+.panel.maxed .grp h4 { font-size: var(--t3); margin-bottom: var(--s3); }
+.panel.maxed .tiles { gap: var(--s3); }
+.panel.maxed .tile { width: 200px; height: 200px; }
+.panel.maxed .tile img { object-fit: contain; background: var(--sunken); }
+.panel.maxed .mark { width: 26px; height: 26px; top: -7px; left: -7px; }
+.panel.maxed .mark svg { width: 14px; height: 14px; }
+
 .preview { position: fixed; z-index: 2147483646; display: none; pointer-events: none;
-  background: #202124; border: 1px solid #5f6368; border-radius: 10px; padding: 6px;
-  box-shadow: 0 10px 36px rgba(0,0,0,.7); }
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--r2); padding: var(--s2);
+  box-shadow: 0 20px 56px rgba(0,0,0,.7); }
 .preview.on { display: block; }
-.preview img { display: block; border-radius: 6px; background: #303134;
+.preview img { display: block; border-radius: var(--r1); background: #2a2d31;
   max-width: 100%; max-height: 100%; object-fit: contain; }
-.preview b { display: block; margin-top: 4px; font: 400 11px/1.4 'Google Sans', Roboto, system-ui, sans-serif;
-  color: #9aa0a6; text-align: center; }
-.warn { background: #3b2f1c; color: #fdd663; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 12px; }
-.ft { border-top: 1px solid #3c4043; padding: 10px 14px; background: #282a2d; }
+.preview b { display: block; margin-top: 6px; font: 400 var(--t1)/1.4 var(--ui);
+  color: var(--fg-3); text-align: center; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 `;
 
   const HTML = `
 <div class="panel">
-  <div class="hd"><b>Google Photos DeDuper</b><button class="max" title="Maximise">⛶</button><button class="min" title="Minimise">–</button></div>
+  <div class="hd"><b>Google Photos DeDuper</b><button class="max" title="Maximise"></button><button class="min" title="Minimise"></button></div>
   <div class="body">
     <div class="controls">
     <div class="warn" style="display:none"></div>
-    <label>Similarity <input type="range" class="sim" min="70" max="100" value="92"><b class="simv">92%</b></label>
-    <label>Scan at most <input type="number" class="cap" value="2000" min="50" step="50"></label>
-    <label>Include videos <input type="checkbox" class="vid"></label>
+    <div class="fields">
+      <label class="field"><span class="lbl">Similarity</span><input type="range" class="sim" min="70" max="100" value="92"><b class="simv">92%</b></label>
+      <label class="field"><span class="lbl">Scan at most</span><input type="number" class="cap" value="2000" min="50" step="50"><span class="unit">photos</span></label>
+      <label class="field"><span class="lbl">Include videos</span><input type="checkbox" class="vid"></label>
+    </div>
     <div class="row">
       <button class="act scan">Scan</button>
       <button class="act sec stop" disabled>Stop</button>
-      <button class="act sec reset">Reset</button>
+      <button class="act ghost reset">Reset</button>
     </div>
     <div class="bar"><i></i></div>
     <div class="status">Idle.</div>
@@ -86,7 +189,7 @@ button.act:disabled { opacity: .45; cursor: default; }
     <div class="results"></div>
   </div>
   <div class="ft">
-    <div class="row" style="margin:0">
+    <div class="row">
       <button class="act sec dry" disabled>Dry run</button>
       <button class="act danger del" disabled>Move selected to bin</button>
     </div>
@@ -119,9 +222,9 @@ button.act:disabled { opacity: .45; cursor: default; }
     ui.syncChrome = () => {
       const collapsed = ui.panel.classList.contains('collapsed');
       const maxed = ui.panel.classList.contains('maxed');
-      ui.min.textContent = collapsed ? '+' : '–';
+      ui.min.innerHTML = collapsed ? ICON.expand : ICON.minimise;
       ui.min.title = collapsed ? 'Expand' : 'Minimise';
-      ui.max.textContent = maxed ? '⤡' : '⛶';
+      ui.max.innerHTML = maxed ? ICON.restore : ICON.maximise;
       ui.max.title = maxed ? 'Restore' : 'Maximise';
       ui.min.style.display = maxed ? 'none' : '';
     };
@@ -205,7 +308,7 @@ button.act:disabled { opacity: .45; cursor: default; }
       ui.previewImg.src = item.thumb || '';
       ui.previewCap.textContent =
         (item.ts ? new Date(item.ts).toLocaleString() : 'date unknown') +
-        (item.kind && item.kind !== 'Photo' ? ` \u00b7 ${item.kind}` : '');
+        (item.kind && item.kind !== 'Photo' ? ` · ${item.kind}` : '');
 
       const big = new Image();
       big.onload = () => {
@@ -230,7 +333,7 @@ button.act:disabled { opacity: .45; cursor: default; }
   }
 
   // Each group renders with one keeper (green) and the rest marked for deletion
-  // (red). Clicking a thumbnail promotes it to keeper; clicking the caption
+  // (red). Clicking a thumbnail promotes it to keeper; clicking the corner badge
   // toggles whether that single item is deleted.
   function renderGroups(ui, groups, state, onChange) {
     ui.results.textContent = '';
@@ -238,7 +341,7 @@ button.act:disabled { opacity: .45; cursor: default; }
       ui.results.textContent = '';
       return;
     }
-    // Maximised tiles are 230px, so they need a bigger render than the 144px
+    // Maximised tiles are 200px, so they need a bigger render than the 144px
     // grid thumbnail, and the hover preview is redundant at that size.
     const maxed = !!(ui.isMaxed && ui.isMaxed());
     const frag = document.createDocumentFragment();
@@ -247,39 +350,51 @@ button.act:disabled { opacity: .45; cursor: default; }
       box.className = 'grp';
       const h = document.createElement('h4');
       const when = g.items[0].ts ? new Date(g.items[0].ts).toLocaleDateString() : 'unknown date';
-      h.textContent = `${g.items.length} similar · ${when}`;
+      const title = document.createElement('span');
+      title.textContent = `${g.items.length} similar photos`;
+      const date = document.createElement('span');
+      date.className = 'when';
+      date.textContent = when;
+      h.append(title, date);
       box.append(h);
       const tiles = document.createElement('div');
       tiles.className = 'tiles';
       g.items.forEach((it) => {
         const t = document.createElement('div');
         const marked = state.toDelete.has(it.id);
-        t.className = 'tile ' + (marked ? 'del' : 'keep');
+        t.className = 'tile ' + (marked ? 'bin' : 'keeper');
+        t.dataset.id = it.id;
         const img = document.createElement('img');
         img.src = maxed ? bigUrl(it.thumb || '', 512) : it.thumb || '';
         img.loading = 'lazy';
-        img.title = it.id;
+        img.alt = '';
+        img.title = marked ? 'Keep this one instead' : 'Keeping this one';
         img.onclick = () => {
           g.items.forEach((o) => state.toDelete.add(o.id));
           state.toDelete.delete(it.id);
           onChange();
         };
-        const cap = document.createElement('span');
-        cap.textContent = marked ? 'delete' : 'keep';
-        cap.onclick = () => {
+        // The badge is the per-item toggle the old text caption used to be.
+        const mark = document.createElement('button');
+        mark.type = 'button';
+        mark.className = 'mark';
+        mark.innerHTML = marked ? ICON.cross : ICON.check;
+        mark.title = marked ? 'Going to the bin — click to keep' : 'Keeping — click to send to the bin';
+        mark.setAttribute('aria-label', mark.title);
+        mark.onclick = () => {
           if (state.toDelete.has(it.id)) state.toDelete.delete(it.id);
           else state.toDelete.add(it.id);
           onChange();
         };
         if (!maxed) attachPreview(ui, img, it);
-        t.append(img, cap);
+        t.append(img, mark);
         tiles.append(t);
       });
       box.append(tiles);
       frag.append(box);
       if (gi === 199) {
         const more = document.createElement('div');
-        more.className = 'status';
+        more.className = 'note';
         more.textContent = `…and ${groups.length - 200} more groups (all of them are included in a delete run).`;
         frag.append(more);
       }
