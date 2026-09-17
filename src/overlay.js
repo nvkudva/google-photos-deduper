@@ -136,6 +136,10 @@ button.act:disabled { opacity: .45; cursor: default; }
     }
   }
 
+  // Bumped on every hover. A large image that finishes loading after the
+  // pointer has moved on must not overwrite the newer preview.
+  let previewSeq = 0;
+
   // Sits to the left of the panel, vertically centred on the hovered tile and
   // clamped to the viewport. A short delay keeps it from flashing while the
   // pointer sweeps across a row.
@@ -162,15 +166,24 @@ button.act:disabled { opacity: .45; cursor: default; }
       ui.previewImg.style.maxHeight = (maxH - 34) + 'px';
       ui.previewImg.style.maxWidth = (maxW - 12) + 'px';
 
-      ui.previewImg.onload = place;
-      ui.previewImg.onerror = () => {
-        ui.previewImg.onerror = null;
-        ui.previewImg.src = item.thumb || '';
-      };
-      ui.previewImg.src = bigUrl(item.thumb || '');
+      // The small thumbnail is already in cache, so it paints immediately and
+      // is always the right photo. Assigning the large src directly instead
+      // would leave the PREVIOUS photo on screen until the new one decoded.
+      const seq = ++previewSeq;
+      ui.previewImg.onload = null;
+      ui.previewImg.onerror = null;
+      ui.previewImg.src = item.thumb || '';
       ui.previewCap.textContent =
         (item.ts ? new Date(item.ts).toLocaleString() : 'date unknown') +
         (item.kind && item.kind !== 'Photo' ? ` \u00b7 ${item.kind}` : '');
+
+      const big = new Image();
+      big.onload = () => {
+        if (seq !== previewSeq) return; // pointer has moved on
+        ui.previewImg.src = big.src;
+        place();
+      };
+      big.src = bigUrl(item.thumb || '');
 
       ui.preview.classList.add('on');
       place();
