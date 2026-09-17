@@ -5,6 +5,9 @@ window.GPDD = window.GPDD || {};
 (() => {
   // Inline only: the extension must render with no network of any kind.
   const ICON = {
+    // Google Photos' own bin glyph, lifted from the sidebar so the button that
+    // does the deleting looks like the place the photos end up.
+    bin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4V3H9v1H4v2h1v13c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V6h1V4h-5zm2 15H7V6h10v13zM9 8h2v9H9zm4 0h2v9h-2z"/></svg>',
     maximise: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.75 6V2.75H6"/><path d="M10 2.75h3.25V6"/><path d="M13.25 10v3.25H10"/><path d="M6 13.25H2.75V10"/></svg>',
     restore: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.75V6H2.75"/><path d="M10 2.75V6h3.25"/><path d="M10 13.25V10h3.25"/><path d="M6 13.25V10H2.75"/></svg>',
     minimise: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 8h8"/></svg>',
@@ -177,8 +180,11 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .mark:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 
 .ft { border-top: 1px solid var(--hair); padding: var(--s3) var(--s4); background: var(--chrome); }
-.ft .row { margin: 0; justify-content: flex-end; }
-.ft .del { min-width: 176px; }
+.ft .row { margin: 0; gap: var(--s3); }
+.ft .hint { flex: 1 1 auto; color: var(--fg-3); font-size: var(--t1); line-height: 1.4; }
+.ft .del { flex: 0 0 auto; min-width: 176px; display: inline-flex; align-items: center;
+  justify-content: center; gap: 7px; }
+.ft .del svg { flex: 0 0 auto; width: 16px; height: 16px; fill: currentColor; }
 
 /* Inset from every edge so the maximised state reads as a popup over Google
    Photos rather than a replacement for it. */
@@ -292,8 +298,8 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   </div>
   <div class="ft">
     <div class="row">
-      <button class="act sec dry" disabled>Dry run</button>
-      <button class="act danger del" disabled>Move selected to bin</button>
+      <span class="hint">Recoverable from the bin for 60 days.</span>
+      <button class="act danger del" disabled><span class="dellbl">Move selected to bin</span></button>
     </div>
   </div>
 </div>
@@ -521,7 +527,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       panel: $('.panel'), warn: $('.warn'), sim: $('.sim'), simv: $('.simv'),
       cap: $('.cap'), vid: $('.vid'), scan: $('.scan'), stop: $('.stop'), reset: $('.reset'),
       bar: $('.bar i'), status: $('.status'), log: $('.log'), results: $('.results'),
-      dry: $('.dry'), del: $('.del'), min: $('.min'),
+      del: $('.del'), dellbl: $('.dellbl'), min: $('.min'),
       preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
       scrim: $('.scrim'), modalImg: $('.modal img'), modalCap: $('.mcap'), nums: $('.nums'),
       mkeep: $('.mkeep'), mclose: $('.mclose'),
@@ -529,6 +535,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
       range: null,
     };
     ui.range = buildRange(ui, $);
+    ui.del.insertAdjacentHTML('afterbegin', ICON.bin);
 
     // Both buttons reflect their state rather than always showing one icon.
     ui.syncChrome = () => {

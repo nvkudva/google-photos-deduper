@@ -40,8 +40,7 @@ window.GPDD = window.GPDD || {};
     overlay.renderGroups(ui, state.groups, state, refresh);
     const n = state.toDelete.size;
     ui.del.disabled = !n || state.running;
-    ui.dry.disabled = !n || state.running;
-    ui.del.textContent = n ? `Move ${n} to bin` : 'Move selected to bin';
+    ui.dellbl.textContent = n ? `Move ${n} to bin` : 'Move selected to bin';
   }
 
   // The sparkline behind the range scrubber is drawn from whatever has already
@@ -136,28 +135,24 @@ window.GPDD = window.GPDD || {};
     refresh();
   };
 
-  async function runDelete(dryRun) {
+  async function runDelete() {
     state.running = true; state.stop = false;
     ui.scan.disabled = true; ui.stop.disabled = false; refresh();
     ui.setWarn('');
-    ui.setStatus(dryRun ? 'Dry run — nothing will be deleted.' : 'Deleting…');
+    ui.setStatus('Deleting…');
     try {
       const r = await deleter.run({
         targetIds: [...state.toDelete],
-        dryRun,
+        dryRun: false,
         shouldStop: () => state.stop,
         onProgress: (p) => {
           if (p.log) return ui.addLog(p.log);
           ui.setStatus(`Deleted ${p.deleted} · ${p.remaining} to go`);
         },
       });
-      if (dryRun) {
-        ui.setStatus(`Dry run: would move ${r.wouldDelete} to the bin. ${r.notFound} were not reachable in the grid.`);
-      } else {
-        await regroup();
-        // regroup() rewrites the status line, so the outcome goes on last.
-        ui.setStatus(`Moved ${r.deleted} to the bin — recoverable there for 60 days.` + (r.notFound ? ` ${r.notFound} were not reachable.` : ''));
-      }
+      await regroup();
+      // regroup() rewrites the status line, so the outcome goes on last.
+      ui.setStatus(`Moved ${r.deleted} to the bin — recoverable there for 60 days.` + (r.notFound ? ` ${r.notFound} were not reachable.` : ''));
     } catch (e) {
       ui.setWarn(String(e.message || e));
       ui.setStatus('Delete stopped.');
@@ -166,8 +161,6 @@ window.GPDD = window.GPDD || {};
       ui.scan.disabled = false; ui.stop.disabled = true; refresh();
     }
   }
-
-  ui.dry.onclick = () => runDelete(true);
 
   // Deliberately not window.confirm(): a content script's native dialog blocks
   // the whole renderer, which freezes the very page the deleter has to drive.
@@ -182,13 +175,13 @@ window.GPDD = window.GPDD || {};
       }, 15000);
       // Kept short on purpose: a longer label reflows the footer and moves the
       // button out from under the pointer, so the confirming click misses.
-      ui.del.textContent = 'Confirm delete';
+      ui.dellbl.textContent = 'Confirm delete';
       ui.setStatus(`Click the red button again to move ${n} to the bin. Recoverable there for 60 days.`);
       return;
     }
     clearTimeout(armed);
     armed = null;
-    runDelete(false);
+    runDelete();
   };
 
   store.count().then((c) => { if (c) regroup(); });
