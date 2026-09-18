@@ -228,6 +228,9 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   animation: gpdd-spin .7s linear infinite; }
 .srow { display: flex; align-items: center; gap: var(--s2); }
 .srow .status { flex: 1 1 auto; }
+/* Pushed to the right edge by the status line's flex, so the offer sits away
+   from the sentence it answers. */
+.srow .undo { flex: 0 0 auto; margin-left: auto; }
 .panel.busy .srow > .spin, .panel.busy .ft .del .spin { display: block; }
 .panel.busy .ft .del svg { display: none; }
 .gact button.working .spin { display: block; }

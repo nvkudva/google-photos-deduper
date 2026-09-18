@@ -77,7 +77,7 @@ window.GPDD = window.GPDD || {};
   async function regroup() {
     const items = await store.allItems();
     ui.range.setHistogram(items);
-    if (items.length > 20000) ui.setStatus(`Grouping ${items.length} photos…`);
+    if (items.length > 20000) ui.setStatus(`Grouping ${items.length} photos…`, { keepUndo: true });
     const res = await grouping.group(items, {
       similarity: Number(ui.sim.value),
       onProgress: ({ done }) => {
@@ -97,7 +97,7 @@ window.GPDD = window.GPDD || {};
     state.toDelete = new Set();
     results.addSelection(state.groups, state, 0, state.shown);
     const dupes = state.groups.reduce((s, g) => s + g.items.length - 1, 0);
-    ui.setStatus(`${items.length} scanned · ${state.groups.length} groups · ${dupes} duplicates`);
+    ui.setStatus(`${items.length} scanned · ${state.groups.length} groups · ${dupes} duplicates`, { keepUndo: true });
     refresh();
   }
 
@@ -154,6 +154,11 @@ window.GPDD = window.GPDD || {};
   async function runDelete(ids, { partial = false } = {}) {
     const targetIds = ids || [...state.toDelete];
     const shownBefore = state.shown;
+    // api.run takes the confirmed photos out of the store, so the rows to put
+    // back on an undo are taken from the groups while they are still there.
+    const want = new Set(targetIds);
+    const rows = new Map();
+    state.groups.forEach((g) => g.items.forEach((it) => { if (want.has(it.id)) rows.set(it.id, it); }));
     state.running = true; state.stop = false;
     state.runningIds = new Set(targetIds);
     ui.scan.disabled = true; ui.stop.disabled = false; refresh();
@@ -211,14 +216,70 @@ window.GPDD = window.GPDD || {};
         reselect(pending);
       }
 
+      // Only a run that binned something can be undone, and only until the
+      // next one replaces it.
+      state.lastDelete = r && r.deleted ? { keys: r.deletedKeys, rows } : null;
+
       // regroup() rewrites the status line, so the outcome goes on last.
       ui.setStatus(
         (failed ? `Delete stopped: ${failed}` : `Moved ${r.deleted} to the bin — recoverable there.`) +
           (r && r.alreadyBinned ? ` ${r.alreadyBinned} were already there.` : '') +
-          (pending.length ? ` ${pending.length} left${partial ? ' in that group.' : ' — click again to carry on.'}` : '')
+          (pending.length ? ` ${pending.length} left${partial ? ' in that group.' : ' — click again to carry on.'}` : ''),
+        { keepUndo: true }
       );
+      ui.setUndo(state.lastDelete ? state.lastDelete.keys.size : 0);
     }
   }
+
+  ui.undo.onclick = async () => {
+    const last = state.lastDelete;
+    if (!last || state.running) return;
+    // Same lock a delete takes: putting rows back and regrouping must not race
+    // a scan or another bin run started while it is in flight.
+    state.running = true;
+    ui.scan.disabled = true;
+    ui.undo.disabled = true;
+    refresh();
+    ui.setBusy(true);
+    ui.setWarn('');
+    ui.setStatus(`Putting ${last.keys.size} back…`, { keepUndo: true });
+    let back;
+    try {
+      back = await api.restore(last.keys, {
+        onProgress: (p) => { if (p.log) ui.addLog(p.log); },
+      });
+    } catch (e) {
+      ui.setWarn(`Undo failed: ${e.message || e}`);
+      ui.setStatus('Nothing was restored — the photos are still in the bin.', { keepUndo: true });
+      ui.undo.disabled = false;
+      back = null;
+    }
+    if (back) try {
+      // Only the photos Google's reply names go back in the store, so a partial
+      // restore leaves the rest out of the results rather than showing rows for
+      // photos still in the bin.
+      const restored = back.map((id) => last.rows.get(id)).filter(Boolean);
+      if (restored.length) await store.putMany(restored);
+      // Restoring is idempotent, so the offer stays up when nothing came back
+      // and the keys are still there to try again with.
+      if (back.length) state.lastDelete = null;
+      await regroup();
+      ui.setStatus(
+        back.length === last.keys.size
+          ? `Put ${back.length} back.`
+          : `Put ${back.length} back — ${last.keys.size - back.length} stayed in the bin.`,
+        { keepUndo: !back.length }
+      );
+      if (!back.length) ui.undo.disabled = false;
+    } catch (e) {
+      ui.setWarn(`The photos are back in the library, but the results could not be rebuilt: ${e.message || e}`);
+    } finally {
+      state.running = false;
+      ui.scan.disabled = false;
+      ui.setBusy(false);
+      refresh();
+    }
+  };
 
   // Put the given ids back in the selection after a regroup, expanding the
   // visible page far enough to cover them: nothing may be queued for deletion

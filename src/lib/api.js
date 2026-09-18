@@ -116,6 +116,10 @@ window.GPDD = window.GPDD || {};
     const log = (t) => onProgress({ log: t });
     const targets = [...new Set(targetIds)];
     const deleted = [];
+    // The dedup key each binned photo went out with. Restoring needs it, and
+    // the info RPC stops answering for a photo once it is in the bin, so the
+    // key has to be kept rather than looked up again.
+    const usedKeys = new Map();
     const skipped = [];
     const alreadyBinned = [];
     let inBin = null; // fetched once, only if a lookup fails
@@ -178,7 +182,7 @@ window.GPDD = window.GPDD || {};
       unnamed.forEach((id) => skipped.push(id));
       if (done.length) {
         await store.remove(done);
-        done.forEach((id) => deleted.push(id));
+        done.forEach((id) => { deleted.push(id); usedKeys.set(id, keys.get(id)); });
       }
       report();
     }
@@ -186,6 +190,7 @@ window.GPDD = window.GPDD || {};
     const finished = new Set([...deleted, ...alreadyBinned, ...skipped]);
     return {
       deleted: deleted.length,
+      deletedKeys: usedKeys,
       alreadyBinned: alreadyBinned.length,
       skipped,
       remaining: targets.filter((id) => !finished.has(id)),
@@ -193,5 +198,30 @@ window.GPDD = window.GPDD || {};
     };
   }
 
-  window.GPDD.api = { run, batch, dedupKeys, binned, RPC_TRASH };
+  // Takes the ids and dedup keys a run() handed back, in batches the same size
+  // as the bin request, and returns the ids Google's reply names as restored.
+  async function restore(keyed, { onProgress = () => {} } = {}) {
+    const pairs = [...keyed].filter(([, key]) => key);
+    const back = [];
+    for (let i = 0; i < pairs.length; i += TRASH_BATCH) {
+      const part = pairs.slice(i, i + TRASH_BATCH);
+      const receipt = await twice(
+        () => batch(RPC_TRASH, [[null, 3, part.map(([, key]) => key), 2]]),
+        (t) => onProgress({ log: t }),
+        'restore from bin'
+      );
+      // The bin request's reply names what it moved; this one is undocumented
+      // even upstream, which reads the response and never parses it. So the
+      // names are used when they are there, and a request that came back
+      // without throwing otherwise counts for the whole batch - the cost of
+      // over-counting is a row shown for a photo still in the bin, which the
+      // next scan corrects, against losing the row entirely.
+      const named = new Set(JSON.stringify(receipt[0] || null).match(MEDIA_KEY) || []);
+      part.forEach(([id]) => { if (!named.size || named.has(id)) back.push(id); });
+      onProgress({ restored: back.length, remaining: pairs.length - back.length });
+    }
+    return back;
+  }
+
+  window.GPDD.api = { run, restore, batch, dedupKeys, binned, RPC_TRASH };
 })();

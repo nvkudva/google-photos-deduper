@@ -40,7 +40,7 @@ window.GPDD.ui = window.GPDD.ui || {};
       <button class="act scan">Scan</button>
     </div>
     <div class="bar"><i></i></div>
-    <div class="srow"><span class="spin" aria-hidden="true"></span><div class="status">Idle.</div></div>
+    <div class="srow"><span class="spin" aria-hidden="true"></span><div class="status">Idle.</div><button class="act sec undo" type="button" style="display:none">Undo</button></div>
     <div class="log"></div>
     </div>
     <div class="results"></div>
@@ -72,6 +72,7 @@ window.GPDD.ui = window.GPDD.ui || {};
       panel: $('.panel'), warn: $('.warn'), sim: $('.sim'), simv: $('.simv'),
       cap: $('.cap'), scan: $('.scan'), stop: $('.stop'), reset: $('.reset'),
       bar: $('.bar i'), status: $('.status'), log: $('.log'), results: $('.results'),
+      undo: $('.undo'),
       del: $('.del'), dellbl: $('.dellbl'), min: $('.min'),
       scanbar: $('.scanbar'), scanmsg: $('.scanbar .msg'), scanstop: $('.scanstop'),
       preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
@@ -98,9 +99,19 @@ window.GPDD.ui = window.GPDD.ui || {};
       ui.panel.style.display = on ? 'none' : '';
       ui.scanbar.classList.toggle('on', on);
     };
-    ui.setStatus = (t) => {
+    ui.setStatus = (t, { keepUndo = false } = {}) => {
       ui.status.textContent = t;
       ui.scanmsg.textContent = t;
+      if (!keepUndo) ui.undo.style.display = 'none';
+    };
+    // Offered only after a delete that actually binned something, and withdrawn
+    // by the next status line, so it never points at a run that is no longer
+    // the last one.
+    ui.setUndo = (n) => {
+      ui.undo.style.display = n ? '' : 'none';
+      ui.undo.disabled = false;
+      ui.undo.textContent = n ? `Undo ${n}` : 'Undo';
+      ui.undo.title = n ? `Put ${n} back from the bin` : '';
     };
     // Deleting has no percentage worth showing - it is a handful of requests,
     // not a per-photo walk - so the wheel says "working" and the status line
