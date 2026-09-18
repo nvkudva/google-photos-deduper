@@ -8,20 +8,11 @@ window.GPDD = window.GPDD || {};
   const POP = new Uint8Array(256);
   for (let i = 0; i < 256; i++) POP[i] = (i & 1) + POP[i >> 1];
 
-  function hamming(a, b) {
-    if (!a || !b || a.length !== b.length) return 64;
-    let dist = 0;
-    for (let i = 0; i < a.length; i += 2) {
-      dist += POP[parseInt(a.slice(i, i + 2), 16) ^ parseInt(b.slice(i, i + 2), 16)];
-    }
-    return dist;
-  }
-
   // A hash with almost no bits set (or almost all) came from a flat crop - a
   // tile captured before its thumbnail painted. It carries no information and
   // sits within threshold of every other flat crop, which chains them into one
   // enormous bogus group. Such rows are purged and re-hashed, not kept.
-  // Byte at a time off the same table hamming() uses. The per-character
+  // Byte at a time off the POP table. The per-character
   // parseInt/toString/regex version cost 750ms over 200k rows in degenerate().
   const popcount = (hex) => {
     let n = 0;
@@ -83,5 +74,5 @@ window.GPDD = window.GPDD || {};
     return hex;
   }
 
-  window.GPDD.hash = { hamming, degenerate, popcount, dhashBlob };
+  window.GPDD.hash = { degenerate, popcount, dhashBlob };
 })();

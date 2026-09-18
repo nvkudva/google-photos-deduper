@@ -82,8 +82,7 @@ window.GPDD = window.GPDD || {};
   const count = () => tx(ITEMS, 'readonly', (os) => os.count());
   const remove = (ids) => tx(ITEMS, 'readwrite', (os) => ids.forEach((i) => os.delete(i)));
   const clear = () => tx(ITEMS, 'readwrite', (os) => os.clear());
-  const getMeta = (k) => tx(META, 'readonly', (os) => os.get(k));
   const setMeta = (k, v) => tx(META, 'readwrite', (os) => os.put(v, k));
 
-  window.GPDD.store = { putMany, allItems, knownIds, count, remove, clear, getMeta, setMeta };
+  window.GPDD.store = { putMany, allItems, knownIds, count, remove, clear, setMeta };
 })();

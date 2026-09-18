@@ -156,7 +156,6 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .bar { height: 3px; background: #303133; border-radius: 999px; overflow: hidden; margin: var(--s4) 0 var(--s2); }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width .25s ease; }
 .status { min-height: 18px; color: var(--fg-2); font-size: var(--t2); line-height: 1.5; }
-.note { color: var(--fg-3); font-size: var(--t2); padding: var(--s2) var(--s1) 0; }
 .more { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3);
   padding-top: var(--s3); border-top: 1px solid var(--hair); }
 .more span { flex: 1 1 auto; color: var(--fg-3); font-size: var(--t2); }

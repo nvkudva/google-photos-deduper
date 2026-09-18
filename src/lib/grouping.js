@@ -46,7 +46,7 @@ window.GPDD = window.GPDD || {};
     let capped = 0;
 
     // Each hash is packed into two 32-bit halves once. The banding pass runs
-    // hundreds of millions of comparisons at 200k photos, and hamming() reparses
+    // hundreds of millions of comparisons at 200k photos, and a hex-parsing
     // the hex string on every one of them.
     const hi = new Int32Array(n);
     const lo = new Int32Array(n);

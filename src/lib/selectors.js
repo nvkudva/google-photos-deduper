@@ -11,8 +11,6 @@ window.GPDD = window.GPDD || {};
     wrapper: 'div[jsname="NwW5ce"]',
     thumb: '[data-latest-bg]',
     checkbox: '[role="checkbox"]',
-    moveToBin: '[aria-label="Move to bin"],[aria-label="Move to trash"],[aria-label="Delete"]',
-    clearSelection: '[aria-label="Clear selection"]',
   };
 
   // Date-header checkboxes ("Select all photos from Yesterday") sit in the same
@@ -48,46 +46,8 @@ window.GPDD = window.GPDD || {};
     return out;
   }
 
-  const PHOTO_ID = /\/photo\/([^/?#]+)/;
-
-  function readTile(a) {
-    const href = a.getAttribute('href') || '';
-    const m = href.match(PHOTO_ID);
-    const id = m ? m[1] : '';
-    if (!id) return null;
-    const meta = parseLabel(a.getAttribute('aria-label'));
-    return { id, href, kind: meta.kind, ts: meta.ts, day: meta.day, thumb: thumbUrl(a) };
-  }
-
   function liveTiles() {
     return [...document.querySelectorAll(S.tile)];
-  }
-
-  // A click is only dispatched when the target is genuinely hit-testable.
-  // Recycled tiles keep stale rects (observed at top: -590) and must be skipped.
-  function safeRect(el) {
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    const ok =
-      r.width > 8 &&
-      r.height > 8 &&
-      r.top > 64 &&
-      r.left >= 0 &&
-      r.bottom < window.innerHeight - 8 &&
-      r.right < window.innerWidth - 8;
-    return ok ? r : null;
-  }
-
-  // Toolbar and dialog buttons sit in the top bar, which safeRect deliberately
-  // excludes. They only need to be on screen and hit-testable.
-  function buttonRect(el) {
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    const ok =
-      r.width > 8 && r.height > 8 &&
-      r.top >= 0 && r.left >= 0 &&
-      r.bottom <= window.innerHeight && r.right <= window.innerWidth;
-    return ok ? r : null;
   }
 
   function selfCheck() {
@@ -105,8 +65,5 @@ window.GPDD = window.GPDD || {};
     return problems;
   }
 
-  window.GPDD.sel = {
-    S, tileCheckbox, thumbUrl, parseLabel, readTile, liveTiles,
-    safeRect, buttonRect, isSelectAll, selfCheck,
-  };
+  window.GPDD.sel = { liveTiles, selfCheck };
 })();
