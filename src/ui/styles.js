@@ -3,7 +3,7 @@
 window.GPDD = window.GPDD || {};
 window.GPDD.ui = window.GPDD.ui || {};
 
-const CSS = `
+const CSS = /* css */ `
 :host {
   all: initial;
   color-scheme: dark;

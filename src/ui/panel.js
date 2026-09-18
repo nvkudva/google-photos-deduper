@@ -6,7 +6,7 @@ window.GPDD.ui = window.GPDD.ui || {};
 (() => {
   const { CSS, ICON, buildRange } = window.GPDD.ui;
 
-  const HTML = `
+  const HTML = /* html */ `
 <div class="panel">
   <div class="hd"><b>Photo DeDuper</b><button class="min" title="Minimise"></button></div>
   <div class="body">
