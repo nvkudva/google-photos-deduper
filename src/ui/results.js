@@ -4,7 +4,7 @@ window.GPDD = window.GPDD || {};
 window.GPDD.ui = window.GPDD.ui || {};
 
 (() => {
-  const { ICON, preview } = window.GPDD.ui;
+  const { ICON, preview, css } = window.GPDD.ui;
 
   // Each group renders with one keeper (green) and the rest marked for deletion
   // (red). Clicking a thumbnail promotes it to keeper; clicking the corner badge
@@ -43,6 +43,200 @@ window.GPDD.ui = window.GPDD.ui || {};
     }
   }
 
+  const CSS = css`
+    /* =============================================================== results == */
+    .results {
+      margin-top: var(--s4);
+      &:empty {
+        margin-top: 0;
+      }
+    }
+    .grp {
+      background: var(--raised);
+      border: 1px solid var(--hair);
+      border-radius: var(--r2);
+      padding: var(--s3);
+      margin-bottom: var(--s2);
+      h4 {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--s3);
+        margin: 0 0 10px;
+        font: 500 var(--t2)/1.3 var(--ui);
+        color: var(--fg);
+        .when {
+          font-weight: 400;
+          font-size: var(--t1);
+          color: var(--fg-3);
+          white-space: nowrap;
+        }
+        .flag {
+          font-weight: 400;
+          font-size: var(--t1);
+          color: var(--fg-3);
+        }
+      }
+      &.skipped {
+        opacity: 0.6;
+        h4 {
+          margin-bottom: 0;
+        }
+      }
+    }
+
+    /* Per-group actions: deal with one card without touching the rest of the
+   selection. */
+    .gact {
+      display: flex;
+      align-items: center;
+      gap: var(--s1);
+      margin-left: auto;
+      button {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 11px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        cursor: pointer;
+        font: 500 var(--t1)/1.2 var(--ui);
+        background: transparent;
+        color: var(--fg-2);
+        &:hover:not(:disabled) {
+          background: var(--accent-soft);
+          border-color: var(--accent);
+          color: var(--accent);
+        }
+        &.working .spin {
+          display: block;
+        }
+      }
+      .gbin {
+        color: var(--gone);
+        border-color: rgba(242, 184, 181, 0.42);
+        &:hover:not(:disabled) {
+          background: var(--gone);
+          border-color: var(--gone);
+          color: var(--gone-ink);
+        }
+      }
+    }
+
+    /* Four to a row whatever the panel width, rather than a fixed tile size that
+   silently drops to three when the column is a few pixels short. */
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--s2);
+    }
+    .tile {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: var(--r1);
+      img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        border-radius: inherit;
+        background: var(--thumb);
+        cursor: pointer;
+      }
+      /* The ring is drawn on a pseudo-element so it sits above the image and
+     never affects layout. */
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        box-shadow: inset 0 0 0 2px transparent;
+        transition: box-shadow 0.12s;
+      }
+      &.keeper {
+        &::after {
+          box-shadow: inset 0 0 0 2px var(--keep);
+        }
+        .mark {
+          background: var(--keep);
+          color: var(--keep-ink);
+        }
+      }
+      &.bin {
+        &::after {
+          box-shadow: inset 0 0 0 2px var(--gone);
+        }
+        .mark {
+          background: var(--gone);
+          color: var(--gone-ink);
+        }
+        img {
+          opacity: 0.45;
+        }
+      }
+      /* A thumbnail that will not load shows as an empty frame rather than the
+     browser's broken-image glyph, which reads as a missing photo. */
+      &.gone-thumb {
+        background: var(--sunken);
+        &::before {
+          content: '?';
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--fg-3);
+          font: 400 var(--t4)/1 var(--ui);
+        }
+      }
+    }
+    /* The corner badge: the per-item keep / bin toggle. */
+    .mark {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 19px;
+      height: 19px;
+      padding: 0;
+      -webkit-appearance: none;
+      appearance: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 0;
+      cursor: pointer;
+      svg {
+        width: 12px;
+        height: 12px;
+        display: block;
+      }
+      &:hover {
+        filter: brightness(1.12);
+      }
+      &:focus-visible {
+        outline: 2px solid var(--fg);
+        outline-offset: 2px;
+      }
+    }
+
+    .more {
+      display: flex;
+      align-items: center;
+      gap: var(--s3);
+      margin-top: var(--s3);
+      padding-top: var(--s3);
+      border-top: 1px solid var(--hair);
+      span {
+        flex: 1 1 auto;
+        color: var(--fg-3);
+        font-size: var(--t2);
+      }
+    }
+  `;
+
   // Parsed once at load and cloned per card, which is cheaper than a chain of
   // createElement calls at 200 groups. Whitespace between tags is dropped so
   // the templates can be laid out for reading without adding text nodes.
@@ -68,53 +262,74 @@ window.GPDD.ui = window.GPDD.ui || {};
         const v = data[key];
         if (target === 'text') el.textContent = v;
         else if (target === 'html') el.innerHTML = v;
-        else if (target === 'class') { if (v) el.classList.add(v); }
-        else if (target in el) el[target] = v;
+        else if (target === 'class') {
+          if (v) el.classList.add(v);
+        } else if (target in el) el[target] = v;
         else el.setAttribute(target, v);
       }
     }
     return node;
   }
 
-  const CARD = tpl(/* html */ `
-    <div class="grp" data-bind="data-g:g">
+  const CARD = tpl(
+    /* HTML */ ` <div class="grp" data-bind="data-g:g">
       <h4><span class="when" data-bind="text:when"></span></h4>
       <div class="tiles"></div>
-    </div>`);
+    </div>`,
+  );
 
   // A skipped card collapses to its heading and can be brought back, rather
   // than vanishing - a group that disappeared would look like photos had been
   // deleted.
-  const SKIPPED = tpl(/* html */ `
-    <div class="grp skipped" data-bind="data-g:g">
+  const SKIPPED = tpl(
+    /* HTML */ ` <div class="grp skipped" data-bind="data-g:g">
       <h4>
         <span class="when" data-bind="text:when"></span>
         <span class="flag" data-bind="text:flag"></span>
-        <div class="gact"><button type="button" data-action="unskip" data-bind="disabled:running">Undo skip</button></div>
+        <div class="gact">
+          <button type="button" data-action="unskip" data-bind="disabled:running">Undo skip</button>
+        </div>
       </h4>
-    </div>`);
+    </div>`,
+  );
 
   // A card's own buttons: skip it, or bin just its duplicates.
-  const ACTIONS = tpl(/* html */ `
-    <div class="gact">
-      <button type="button" class="gskip" data-action="skip" title="Leave this group alone" data-bind="disabled:running">Skip</button>
+  const ACTIONS = tpl(
+    /* HTML */ ` <div class="gact">
+      <button
+        type="button"
+        class="gskip"
+        data-action="skip"
+        title="Leave this group alone"
+        data-bind="disabled:running"
+      >
+        Skip
+      </button>
       <button type="button" class="gbin" data-action="bin" data-bind="disabled:binOff title:binHint class:binMode">
         <span class="spin" aria-hidden="true"></span>
         <span data-bind="text:binLabel"></span>
       </button>
-    </div>`);
+    </div>`,
+  );
 
-  const TILE = tpl(/* html */ `
-    <div class="tile" data-bind="class:mode data-id:id">
-      <img alt="" loading="lazy" data-action="keep" data-bind="src:src title:hint">
-      <button class="mark" type="button" data-action="toggle" data-bind="html:icon title:markHint aria-label:markHint"></button>
-    </div>`);
+  const TILE = tpl(
+    /* HTML */ ` <div class="tile" data-bind="class:mode data-id:id">
+      <img alt="" loading="lazy" data-action="keep" data-bind="src:src title:hint" />
+      <button
+        class="mark"
+        type="button"
+        data-action="toggle"
+        data-bind="html:icon title:markHint aria-label:markHint"
+      ></button>
+    </div>`,
+  );
 
-  const MORE = tpl(/* html */ `
-    <div class="more">
+  const MORE = tpl(
+    /* HTML */ ` <div class="more">
       <span data-bind="text:showing"></span>
       <button type="button" class="act sec" data-action="more" data-bind="text:label"></button>
-    </div>`);
+    </div>`,
+  );
 
   // What the last render put on screen. The delegated handlers read it, so a
   // click on a card finds its group in the array that built the card.
@@ -163,14 +378,18 @@ window.GPDD.ui = window.GPDD.ui || {};
     // A thumbnail that will not load shows as an empty frame rather than the
     // browser's broken-image glyph. error does not bubble, so it is caught on
     // the way down.
-    host.addEventListener('error', (e) => {
-      const tile = e.target.closest && e.target.closest('.tile');
-      if (!tile || !current) return;
-      tile.classList.add('gone-thumb');
-      e.target.removeAttribute('src');
-      current.broken++;
-      if (current.ui.setThumbWarning) current.ui.setThumbWarning(current.broken);
-    }, true);
+    host.addEventListener(
+      'error',
+      (e) => {
+        const tile = e.target.closest && e.target.closest('.tile');
+        if (!tile || !current) return;
+        tile.classList.add('gone-thumb');
+        e.target.removeAttribute('src');
+        current.broken++;
+        if (current.ui.setThumbWarning) current.ui.setThumbWarning(current.broken);
+      },
+      true,
+    );
   }
 
   function groupActions(g, state) {
@@ -199,7 +418,9 @@ window.GPDD.ui = window.GPDD.ui || {};
     groups.slice(0, state.shown).forEach((g, gi) => {
       const when = g.items[0].ts ? new Date(g.items[0].ts).toLocaleDateString() : 'unknown date';
       if (g.items.every((it) => state.dismissed.has(it.id))) {
-        frag.append(fill(SKIPPED, { g: gi, when, flag: `${g.items.length} similar photos · skipped`, running: !!state.running }));
+        frag.append(
+          fill(SKIPPED, { g: gi, when, flag: `${g.items.length} similar photos · skipped`, running: !!state.running }),
+        );
         return;
       }
       const box = fill(CARD, { g: gi, when });
@@ -222,13 +443,15 @@ window.GPDD.ui = window.GPDD.ui || {};
     });
 
     if (groups.length > state.shown) {
-      frag.append(fill(MORE, {
-        showing: `Showing ${state.shown} of ${groups.length} groups`,
-        label: `Show ${Math.min(PAGE, groups.length - state.shown)} more`,
-      }));
+      frag.append(
+        fill(MORE, {
+          showing: `Showing ${state.shown} of ${groups.length} groups`,
+          label: `Show ${Math.min(PAGE, groups.length - state.shown)} more`,
+        }),
+      );
     }
     ui.results.append(frag);
   }
 
-  window.GPDD.ui.results = { renderGroups, addSelection, PAGE };
+  window.GPDD.ui.results = { CSS, renderGroups, addSelection, PAGE };
 })();

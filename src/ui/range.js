@@ -3,6 +3,7 @@ window.GPDD = window.GPDD || {};
 window.GPDD.ui = window.GPDD.ui || {};
 
 (() => {
+  const { css } = window.GPDD.ui;
   // Scan range. The axis runs newest-on-the-left, matching the order Google
   // Photos itself lays the grid out in, so dragging left-to-right reads as
   // walking backwards in time. Months are handled as a single integer
@@ -13,33 +14,255 @@ window.GPDD.ui = window.GPDD.ui || {};
   const msOfMi = (mi) => new Date(Math.floor(mi / 12), mi % 12, 1).getTime();
   const fmtMi = (mi) => MON[mi % 12] + ' ' + Math.floor(mi / 12);
 
-  const HTML = /* html */ `
-    <div class="range">
-      <div class="top">
-        <span class="lbl">Range</span>
-        <button class="pill p-new" type="button"></button>
-        <span class="dash">&ndash;</span>
-        <button class="pill p-old" type="button"></button>
-        <div class="pop pop-new"></div>
-        <div class="pop pop-old"></div>
-      </div>
-      <div class="scrub cold">
-        <div class="spark"></div>
-        <div class="sel"></div>
-        <div class="hand h-new"></div>
-        <div class="hand h-old"></div>
-      </div>
-      <div class="ticks"></div>
-      <div class="rest"><span class="est"></span><button class="all" type="button">Whole library</button></div>
-    </div>`;
+  const HTML = /* HTML */ ` <div class="range">
+    <div class="top">
+      <span class="lbl">Range</span>
+      <button class="pill p-new" type="button"></button>
+      <span class="dash">&ndash;</span>
+      <button class="pill p-old" type="button"></button>
+      <div class="pop pop-new"></div>
+      <div class="pop pop-old"></div>
+    </div>
+    <div class="scrub cold">
+      <div class="spark"></div>
+      <div class="sel"></div>
+      <div class="hand h-new"></div>
+      <div class="hand h-old"></div>
+    </div>
+    <div class="ticks"></div>
+    <div class="rest"><span class="est"></span><button class="all" type="button">Whole library</button></div>
+  </div>`;
+
+  const CSS = css`
+    /* ================================================================= range == */
+    .range {
+      background: var(--raised);
+      border: 1px solid var(--hair);
+      border-radius: var(--r2);
+      padding: var(--s3);
+      margin-bottom: var(--s3);
+      .top {
+        display: flex;
+        align-items: center;
+        gap: var(--s2);
+        position: relative;
+        .lbl {
+          flex: 1 1 auto;
+          color: var(--fg-2);
+          font-size: var(--t3);
+        }
+        .dash {
+          color: var(--fg-3);
+          font-size: var(--t2);
+        }
+      }
+    }
+    button.pill {
+      flex: 0 0 auto;
+      font: 400 var(--t1)/1.45 var(--ui);
+      padding: 4px 9px;
+      border-radius: 999px;
+      background: var(--sunken);
+      border: 1px solid var(--hair);
+      color: var(--fg);
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      &:hover {
+        border-color: var(--line);
+      }
+      &.open {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+      }
+      i {
+        font-style: normal;
+        color: var(--fg-3);
+        margin-left: 5px;
+        font-size: 10px;
+      }
+    }
+
+    /* The month picker that drops from a pill: a year nav and a 4x3 month grid. */
+    .pop {
+      position: absolute;
+      top: calc(100% + 6px);
+      z-index: 6;
+      width: 176px;
+      padding: var(--s2);
+      background: var(--raised);
+      border: 1px solid var(--line);
+      border-radius: var(--r2);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6);
+      display: none;
+      &.on {
+        display: block;
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 7px;
+        b {
+          font: 500 var(--t1)/1.2 var(--ui);
+          color: var(--fg);
+          font-variant-numeric: tabular-nums;
+        }
+        button {
+          width: 20px;
+          height: 20px;
+          padding: 0;
+          border: 0;
+          border-radius: var(--r1);
+          background: transparent;
+          color: var(--fg-3);
+          cursor: pointer;
+          font: 400 10px/1 var(--ui);
+          &:hover:not(:disabled) {
+            background: var(--sunken);
+            color: var(--fg);
+          }
+          &:disabled {
+            opacity: 0.25;
+            cursor: default;
+          }
+        }
+      }
+      .mg {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 3px;
+        button {
+          padding: 5px 0;
+          border: 0;
+          border-radius: var(--r1);
+          background: transparent;
+          color: var(--fg-2);
+          cursor: pointer;
+          font: 400 10px/1.2 var(--ui);
+          &:hover:not(:disabled) {
+            background: var(--sunken);
+            color: var(--fg);
+          }
+          &.on {
+            background: var(--accent);
+            color: var(--accent-ink);
+            font-weight: 500;
+          }
+          &:disabled {
+            opacity: 0.2;
+            cursor: default;
+          }
+        }
+      }
+    }
+
+    /* The scrubber: a sparkline of what has been scanned, the selected span, and
+   a handle at each end. Cold means nothing has been scanned yet, so hatching
+   stands in for the sparkline. */
+    .scrub {
+      position: relative;
+      height: 44px;
+      margin-top: var(--s2);
+      border-radius: var(--r1);
+      background: var(--sunken);
+      overflow: hidden;
+      touch-action: none;
+      .spark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: flex-end;
+        gap: 1px;
+        padding: 0 1px;
+        b {
+          flex: 1;
+          min-height: 1px;
+          background: var(--line);
+          border-radius: 1px 1px 0 0;
+        }
+      }
+      &.cold {
+        .spark {
+          display: none;
+        }
+        &::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          opacity: 0.5;
+          background: repeating-linear-gradient(135deg, transparent 0 5px, var(--hair) 5px 6px);
+        }
+      }
+    }
+    .sel {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: var(--accent-soft);
+      border-left: 2px solid var(--accent);
+      border-right: 2px solid var(--accent);
+    }
+    .hand {
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 24px;
+      margin-top: -12px;
+      background: var(--accent);
+      border-radius: 3px;
+      cursor: ew-resize;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+    }
+    .ticks {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      color: var(--fg-3);
+      font: 400 10px/1 var(--ui);
+      font-variant-numeric: tabular-nums;
+    }
+    .rest {
+      display: flex;
+      align-items: baseline;
+      gap: var(--s2);
+      margin-top: var(--s2);
+      .est {
+        flex: 1 1 auto;
+        color: var(--fg-3);
+        font-size: var(--t1);
+      }
+      .all {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        cursor: pointer;
+        color: var(--accent);
+        font: 400 var(--t1)/1.2 var(--ui);
+        &:disabled {
+          color: var(--fg-3);
+          cursor: default;
+        }
+      }
+    }
+  `;
 
   function buildRange(ui, $) {
     const els = {
-      wrap: $('.range'), top: $('.range .top'),
-      pNew: $('.p-new'), pOld: $('.p-old'), popNew: $('.pop-new'), popOld: $('.pop-old'),
-      scrub: $('.scrub'), spark: $('.spark'), sel: $('.sel'),
-      hNew: $('.h-new'), hOld: $('.h-old'), ticks: $('.ticks'),
-      est: $('.rest .est'), all: $('.rest .all'),
+      wrap: $('.range'),
+      top: $('.range .top'),
+      pNew: $('.p-new'),
+      pOld: $('.p-old'),
+      popNew: $('.pop-new'),
+      popOld: $('.pop-old'),
+      scrub: $('.scrub'),
+      spark: $('.spark'),
+      sel: $('.sel'),
+      hNew: $('.h-new'),
+      hOld: $('.h-old'),
+      ticks: $('.ticks'),
+      est: $('.rest .est'),
+      all: $('.rest .all'),
     };
 
     const now = miOfDate(new Date());
@@ -57,26 +280,41 @@ window.GPDD.ui = window.GPDD.ui || {};
 
     function shut() {
       openPop = -1;
-      els.popNew.classList.remove('on'); els.popOld.classList.remove('on');
-      els.pNew.classList.remove('open'); els.pOld.classList.remove('open');
+      els.popNew.classList.remove('on');
+      els.popOld.classList.remove('on');
+      els.pNew.classList.remove('open');
+      els.pOld.classList.remove('open');
     }
 
     function drawPop(which) {
       const el = which ? els.popOld : els.popNew;
       const val = which ? R.from : R.to;
       const y = viewY[which];
-      const loY = Math.floor(R.lo / 12), hiY = Math.floor(R.hi / 12);
+      const loY = Math.floor(R.lo / 12),
+        hiY = Math.floor(R.hi / 12);
       el.textContent = '';
       const nav = document.createElement('div');
       nav.className = 'nav';
       const back = document.createElement('button');
-      back.type = 'button'; back.textContent = '◀'; back.disabled = y <= loY;
+      back.type = 'button';
+      back.textContent = '◀';
+      back.disabled = y <= loY;
       const label = document.createElement('b');
       label.textContent = String(y);
       const fwd = document.createElement('button');
-      fwd.type = 'button'; fwd.textContent = '▶'; fwd.disabled = y >= hiY;
-      back.onclick = (e) => { e.stopPropagation(); viewY[which]--; drawPop(which); };
-      fwd.onclick = (e) => { e.stopPropagation(); viewY[which]++; drawPop(which); };
+      fwd.type = 'button';
+      fwd.textContent = '▶';
+      fwd.disabled = y >= hiY;
+      back.onclick = (e) => {
+        e.stopPropagation();
+        viewY[which]--;
+        drawPop(which);
+      };
+      fwd.onclick = (e) => {
+        e.stopPropagation();
+        viewY[which]++;
+        drawPop(which);
+      };
       nav.append(back, label, fwd);
       const mg = document.createElement('div');
       mg.className = 'mg';
@@ -89,7 +327,8 @@ window.GPDD.ui = window.GPDD.ui || {};
         if (mi === val) b.classList.add('on');
         b.onclick = (e) => {
           e.stopPropagation();
-          if (which) R.from = mi; else R.to = mi;
+          if (which) R.from = mi;
+          else R.to = mi;
           shut();
           commit();
         };
@@ -112,7 +351,10 @@ window.GPDD.ui = window.GPDD.ui || {};
     function drawSpark() {
       const cold = R.hist.size === 0;
       els.scrub.classList.toggle('cold', cold);
-      if (cold) { els.spark.textContent = ''; return; }
+      if (cold) {
+        els.spark.textContent = '';
+        return;
+      }
       const buckets = new Array(BARS).fill(0);
       R.hist.forEach((n, mi) => {
         if (mi < R.lo || mi > R.hi) return;
@@ -139,10 +381,15 @@ window.GPDD.ui = window.GPDD.ui || {};
     }
 
     function draw() {
-      if (R.from > R.to) { const t = R.from; R.from = R.to; R.to = t; }
+      if (R.from > R.to) {
+        const t = R.from;
+        R.from = R.to;
+        R.to = t;
+      }
       R.from = Math.max(R.lo, Math.min(R.hi, R.from));
       R.to = Math.max(R.lo, Math.min(R.hi, R.to));
-      const left = x(R.to + 1), right = x(R.from);
+      const left = x(R.to + 1),
+        right = x(R.from);
       els.sel.style.left = left + '%';
       els.sel.style.right = 100 - right + '%';
       // Clamped inside the track: at full range the handles would otherwise sit
@@ -158,14 +405,22 @@ window.GPDD.ui = window.GPDD.ui || {};
 
       const months = R.to - R.from + 1;
       let scanned = 0;
-      R.hist.forEach((n, mi) => { if (mi >= R.from && mi <= R.to) scanned += n; });
+      R.hist.forEach((n, mi) => {
+        if (mi >= R.from && mi <= R.to) scanned += n;
+      });
       els.est.textContent = isFull()
-        ? (R.hist.size ? scanned.toLocaleString() + ' photos already scanned' : 'Whole library')
-        : months + (months === 1 ? ' month' : ' months') +
+        ? R.hist.size
+          ? scanned.toLocaleString() + ' photos already scanned'
+          : 'Whole library'
+        : months +
+          (months === 1 ? ' month' : ' months') +
           (R.hist.size ? ' · ' + scanned.toLocaleString() + ' already scanned' : ' · not scanned yet');
     }
 
-    function commit() { draw(); if (R.onchange) R.onchange(); }
+    function commit() {
+      draw();
+      if (R.onchange) R.onchange();
+    }
 
     function drag(el, set) {
       el.onpointerdown = (e) => {
@@ -180,19 +435,37 @@ window.GPDD.ui = window.GPDD.ui || {};
         };
         move(e);
         el.onpointermove = move;
-        el.onpointerup = () => { el.onpointermove = null; el.onpointerup = null; commit(); };
+        el.onpointerup = () => {
+          el.onpointermove = null;
+          el.onpointerup = null;
+          commit();
+        };
       };
     }
     drag(els.hNew, (v) => (R.to = v));
     drag(els.hOld, (v) => (R.from = v));
 
-    els.pNew.onclick = (e) => { e.stopPropagation(); showPop(0); };
-    els.pOld.onclick = (e) => { e.stopPropagation(); showPop(1); };
-    els.all.onclick = () => { R.from = R.lo; R.to = R.hi; commit(); };
-    ui.root.addEventListener('click', (e) => { if (!els.top.contains(e.composedPath()[0])) shut(); });
+    els.pNew.onclick = (e) => {
+      e.stopPropagation();
+      showPop(0);
+    };
+    els.pOld.onclick = (e) => {
+      e.stopPropagation();
+      showPop(1);
+    };
+    els.all.onclick = () => {
+      R.from = R.lo;
+      R.to = R.hi;
+      commit();
+    };
+    ui.root.addEventListener('click', (e) => {
+      if (!els.top.contains(e.composedPath()[0])) shut();
+    });
     document.addEventListener('click', shut);
 
-    draw(); drawSpark(); drawTicks();
+    draw();
+    drawSpark();
+    drawTicks();
 
     return {
       // Counts per month, from whatever is already in the store. Also fixes the
@@ -208,8 +481,13 @@ window.GPDD.ui = window.GPDD.ui || {};
           if (mi < oldest) oldest = mi;
         });
         if (R.hist.size) R.lo = Math.min(R.lo, oldest);
-        if (wasFull) { R.from = R.lo; R.to = R.hi; }
-        draw(); drawSpark(); drawTicks();
+        if (wasFull) {
+          R.from = R.lo;
+          R.to = R.hi;
+        }
+        draw();
+        drawSpark();
+        drawTicks();
       },
       get() {
         return {
@@ -219,9 +497,11 @@ window.GPDD.ui = window.GPDD.ui || {};
           toMs: isFull() ? null : msOfMi(R.to + 1), // exclusive
         };
       },
-      set onchange(fn) { R.onchange = fn; },
+      set onchange(fn) {
+        R.onchange = fn;
+      },
     };
   }
 
-  window.GPDD.ui.range = { HTML, build: buildRange };
+  window.GPDD.ui.range = { HTML, CSS, build: buildRange };
 })();

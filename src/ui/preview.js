@@ -4,8 +4,43 @@ window.GPDD = window.GPDD || {};
 window.GPDD.ui = window.GPDD.ui || {};
 
 (() => {
-  const HTML = /* html */ `
-<div class="preview" data-ref="preview"><img data-ref="previewImg" alt=""><b data-ref="previewCap"></b></div>`;
+  const { css } = window.GPDD.ui;
+  const HTML = /* HTML */ ` <div class="preview" data-ref="preview">
+    <img data-ref="previewImg" alt="" /><b data-ref="previewCap"></b>
+  </div>`;
+
+  const CSS = css`
+    /* =============================================================== preview == */
+    .preview {
+      position: fixed;
+      z-index: 2147483646;
+      display: none;
+      pointer-events: none;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: var(--r2);
+      padding: var(--s2);
+      box-shadow: 0 20px 56px rgba(0, 0, 0, 0.7);
+      &.on {
+        display: block;
+      }
+      img {
+        display: block;
+        border-radius: var(--r1);
+        background: var(--thumb);
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+      b {
+        display: block;
+        margin-top: 6px;
+        font: 400 var(--t1)/1.4 var(--ui);
+        color: var(--fg-3);
+        text-align: center;
+      }
+    }
+  `;
 
   // The grid thumbnail URL carries its size in the last path segment
   // (".../<id>=w144-h193-no?..."), and that segment is rewritable - asking for
@@ -44,8 +79,7 @@ window.GPDD.ui = window.GPDD.ui || {};
       const w = ui.preview.offsetWidth;
       const h = ui.preview.offsetHeight;
       ui.preview.style.left = Math.max(12, panel.left - w - 16) + 'px';
-      ui.preview.style.top =
-        Math.max(12, Math.min(window.innerHeight - h - 12, r.top + r.height / 2 - h / 2)) + 'px';
+      ui.preview.style.top = Math.max(12, Math.min(window.innerHeight - h - 12, r.top + r.height / 2 - h / 2)) + 'px';
     };
 
     const show = () => {
@@ -54,8 +88,8 @@ window.GPDD.ui = window.GPDD.ui || {};
       const maxH = Math.round(window.innerHeight * 0.8);
       ui.preview.style.maxWidth = maxW + 'px';
       ui.preview.style.maxHeight = maxH + 'px';
-      ui.previewImg.style.maxHeight = (maxH - 34) + 'px';
-      ui.previewImg.style.maxWidth = (maxW - 12) + 'px';
+      ui.previewImg.style.maxHeight = maxH - 34 + 'px';
+      ui.previewImg.style.maxWidth = maxW - 12 + 'px';
 
       // The small thumbnail is already in cache, so it paints immediately and
       // is always the right photo. Assigning the large src directly instead
@@ -94,5 +128,5 @@ window.GPDD.ui = window.GPDD.ui || {};
     });
   }
 
-  window.GPDD.ui.preview = { HTML, bigUrl, attachPreview };
+  window.GPDD.ui.preview = { HTML, CSS, bigUrl, attachPreview };
 })();
