@@ -4,6 +4,9 @@ window.GPDD = window.GPDD || {};
 window.GPDD.ui = window.GPDD.ui || {};
 
 (() => {
+  const HTML = /* html */ `
+<div class="preview" data-ref="preview"><img data-ref="previewImg" alt=""><b data-ref="previewCap"></b></div>`;
+
   // The grid thumbnail URL carries its size in the last path segment
   // (".../<id>=w144-h193-no?..."), and that segment is rewritable - asking for
   // w1200 returns a genuinely larger image rather than an upscale. Used for the
@@ -91,5 +94,5 @@ window.GPDD.ui = window.GPDD.ui || {};
     });
   }
 
-  window.GPDD.ui.preview = { bigUrl, attachPreview };
+  window.GPDD.ui.preview = { HTML, bigUrl, attachPreview };
 })();

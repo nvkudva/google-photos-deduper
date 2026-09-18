@@ -13,6 +13,26 @@ window.GPDD.ui = window.GPDD.ui || {};
   const msOfMi = (mi) => new Date(Math.floor(mi / 12), mi % 12, 1).getTime();
   const fmtMi = (mi) => MON[mi % 12] + ' ' + Math.floor(mi / 12);
 
+  const HTML = /* html */ `
+    <div class="range">
+      <div class="top">
+        <span class="lbl">Range</span>
+        <button class="pill p-new" type="button"></button>
+        <span class="dash">&ndash;</span>
+        <button class="pill p-old" type="button"></button>
+        <div class="pop pop-new"></div>
+        <div class="pop pop-old"></div>
+      </div>
+      <div class="scrub cold">
+        <div class="spark"></div>
+        <div class="sel"></div>
+        <div class="hand h-new"></div>
+        <div class="hand h-old"></div>
+      </div>
+      <div class="ticks"></div>
+      <div class="rest"><span class="est"></span><button class="all" type="button">Whole library</button></div>
+    </div>`;
+
   function buildRange(ui, $) {
     const els = {
       wrap: $('.range'), top: $('.range .top'),
@@ -203,5 +223,5 @@ window.GPDD.ui = window.GPDD.ui || {};
     };
   }
 
-  window.GPDD.ui.buildRange = buildRange;
+  window.GPDD.ui.range = { HTML, build: buildRange };
 })();
