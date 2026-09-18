@@ -82,20 +82,16 @@ Only then raise the cap.
    tiles when it is hidden, and the scan will report that it has paused.
 2. Adjust **Similarity** to regroup — 100% is byte-identical thumbnails, lower
    values catch recompressions and burst shots.
-3. Review the groups. Green is the keeper (oldest by default). Click the badge
-   on a thumbnail to flip that single item between keep and bin.
+3. Review the groups. Green is the keeper (oldest by default). Click a photo to
+   make it the group's keeper; click the badge on a thumbnail to flip that
+   single item between keep and bin.
    **Hover a thumbnail** to see the photo large (up to 1200px) with its capture
    time, so you can tell two near-identical shots apart before deleting one. The
    preview works because the thumbnail URL's size segment is rewritable —
    `=w144-h193-no` becomes `=w1200-h1200-no` and returns a genuinely larger
    image rather than an upscale.
 
-   **Click** a photo to open it centred at full size. Numbered buttons switch
-   between the photos in that group without leaving the dialog — arrow keys and
-   the number keys work too — and a green ring marks whichever is currently the
-   keeper, so **Keep this one** applies to whatever is on screen. Escape,
-   Close, or a click outside dismisses it. The minimise button collapses the
-   panel to its title bar.
+   The minimise button collapses the panel to its title bar.
 4. **Dry run** first — it reports what it would delete and touches nothing.
 5. **Move selected to bin** — click it twice (the button arms itself for five
    seconds rather than opening a dialog; a content script's native `confirm()`
@@ -120,7 +116,7 @@ and each registers itself on `window.GPDD`.
   thumbnail hashing), `selectors` (the few Google Photos DOM facts still used).
 - `src/ui/` — the panel, one component per file under `window.GPDD.ui`:
   `styles` and `icons` (inline CSS and SVG), `range` (month slider),
-  `preview` (hover preview and the full-size dialog), `results` (group
+  `preview` (the hover preview), `results` (group
   cards, paging, selection), `panel` (template, `mount()`, status setters).
 - `src/content.js` — wiring: state, the scan flow and the delete flow.
 - `src/background.js` — extension reload and the toolbar button only.

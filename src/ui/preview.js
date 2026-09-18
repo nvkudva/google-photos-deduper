@@ -1,5 +1,5 @@
-// Hover preview for the tiles, and the click-to-open dialog behind them. Both
-// rewrite the thumbnail URL to ask for a larger render.
+// Hover preview for the tiles: rewrites the thumbnail URL to ask for a larger
+// render.
 window.GPDD = window.GPDD || {};
 window.GPDD.ui = window.GPDD.ui || {};
 
@@ -85,85 +85,5 @@ window.GPDD.ui = window.GPDD.ui || {};
     });
   }
 
-  // Hovering shows a photo; clicking commits to looking at it. The dialog is
-  // fixed and centred, stays put until dismissed, and carries the keeper action
-  // so clicking a photo does not lose the decision it used to make.
-  let modalSeq = 0;
-
-  // Takes the whole group, not one photo: numbered buttons switch between the
-  // duplicates in place, and "Keep this one" applies to whichever is on screen,
-  // so a decision can be made by looking rather than by remembering.
-  function openModal(ui, group, startIdx, state, keepItem) {
-    let idx = startIdx;
-    // Clicking never fires mouseleave, so the hover preview that opened the
-    // photo would otherwise sit behind the dialog; bumping the sequence also
-    // stops a large image still in flight from putting it back.
-    previewSeq++;
-    ui.preview.classList.remove('on');
-
-    const draw = () => {
-      const item = group.items[idx];
-      const seq = ++modalSeq;
-      ui.modalImg.onload = null;
-      ui.modalImg.src = item.thumb || ''; // cached, so the right photo shows at once
-      ui.modalCap.textContent =
-        `${idx + 1} of ${group.items.length} \u00b7 ` +
-        (item.ts ? new Date(item.ts).toLocaleString() : 'date unknown') +
-        (item.kind && item.kind !== 'Photo' ? ` \u00b7 ${item.kind}` : '');
-      const big = new Image();
-      big.onload = () => {
-        if (seq === modalSeq) ui.modalImg.src = big.src;
-      };
-      big.src = bigUrl(item.thumb || '', 1600);
-      [...ui.nums.children].forEach((b, i) => {
-        b.classList.toggle('now', i === idx);
-        b.classList.toggle('kept', !state.toDelete.has(group.items[i].id));
-      });
-      ui.mkeep.disabled = !state.toDelete.has(item.id);
-      ui.mkeep.textContent = ui.mkeep.disabled ? 'Keeping this one' : 'Keep this one';
-    };
-
-    const go = (n) => {
-      idx = (n + group.items.length) % group.items.length;
-      draw();
-    };
-
-    ui.nums.textContent = '';
-    group.items.forEach((it, i) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'num';
-      b.textContent = String(i + 1);
-      b.title = `Show photo ${i + 1}`;
-      b.onclick = () => go(i);
-      ui.nums.append(b);
-    });
-
-    ui.mkeep.onclick = () => {
-      keepItem(group.items[idx]);
-      closeModal(ui);
-    };
-
-    // Arrows step through, number keys jump straight to one.
-    ui.modalKeys = (e) => {
-      if (e.key === 'ArrowRight') go(idx + 1);
-      else if (e.key === 'ArrowLeft') go(idx - 1);
-      else if (/^[1-9]$/.test(e.key) && Number(e.key) <= group.items.length) go(Number(e.key) - 1);
-      else return;
-      e.preventDefault();
-      e.stopPropagation();
-    };
-
-    ui.scrim.classList.add('on');
-    draw();
-    ui.mclose.focus();
-  }
-
-  function closeModal(ui) {
-    modalSeq++;
-    ui.modalKeys = null;
-    ui.scrim.classList.remove('on');
-  }
-
-  window.GPDD.ui.preview = { bigUrl, attachPreview, openModal, closeModal };
+  window.GPDD.ui.preview = { bigUrl, attachPreview };
 })();

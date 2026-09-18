@@ -143,8 +143,8 @@ window.GPDD.ui = window.GPDD.ui || {};
           broken++;
           if (ui.setThumbWarning) ui.setThumbWarning(broken);
         };
-        img.title = 'Click to view full size';
-        img.onclick = () => preview.openModal(ui, g, idx, state, keepItem);
+        img.title = marked ? 'Keep this one instead' : 'Keeping this one';
+        img.onclick = () => keepItem(it);
         // The badge is the per-item toggle the old text caption used to be.
         const mark = document.createElement('button');
         mark.type = 'button';

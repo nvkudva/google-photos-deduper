@@ -211,26 +211,6 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   justify-content: center; gap: 7px; }
 .ft .del svg { flex: 0 0 auto; width: 16px; height: 16px; fill: currentColor; }
 
-/* The scrim sits after .panel in the DOM so an equal z-index wins. */
-.scrim { position: fixed; inset: 0; z-index: 2147483647; display: none;
-  background: rgba(0,0,0,.72); align-items: center; justify-content: center; }
-.scrim.on { display: flex; }
-.modal { background: var(--raised); border: 1px solid var(--hair); border-radius: var(--r2);
-  padding: var(--s3); box-shadow: 0 24px 64px rgba(0,0,0,.6); max-width: 88vw; max-height: 88vh;
-  display: flex; flex-direction: column; gap: var(--s3); }
-.modal img { display: block; border-radius: var(--r1); object-fit: contain;
-  max-width: 84vw; max-height: 72vh; background: var(--sunken); }
-.modal .mbar { display: flex; align-items: center; gap: var(--s3); }
-.nums { display: flex; gap: var(--s1); }
-.num { width: 30px; height: 30px; border-radius: 999px; cursor: pointer;
-  border: 1px solid var(--line); background: transparent; color: var(--fg-2);
-  font: 500 var(--t2)/1 var(--ui); }
-.num:hover { background: var(--chrome); color: var(--fg); }
-.num.now { background: var(--fg); border-color: var(--fg); color: var(--bg); }
-/* A ring marks whichever photo is currently the keeper, so switching between
-   them shows what the decision is without leaving the dialog. */
-.num.kept { box-shadow: 0 0 0 2px var(--keep); }
-.modal .mcap { flex: 1 1 auto; font-size: var(--t1); color: var(--fg-3); }
 .preview { position: fixed; z-index: 2147483646; display: none; pointer-events: none;
   background: var(--bg); border: 1px solid var(--line); border-radius: var(--r2); padding: var(--s2);
   box-shadow: 0 20px 56px rgba(0,0,0,.7); }

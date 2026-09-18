@@ -4,7 +4,7 @@ window.GPDD = window.GPDD || {};
 window.GPDD.ui = window.GPDD.ui || {};
 
 (() => {
-  const { CSS, ICON, buildRange, preview } = window.GPDD.ui;
+  const { CSS, ICON, buildRange } = window.GPDD.ui;
 
   const HTML = `
 <div class="panel">
@@ -54,15 +54,7 @@ window.GPDD.ui = window.GPDD.ui || {};
 </div>
 <div class="scanbar"><span class="msg"></span><button class="act sec scanstop" type="button">Stop</button></div>
 <div class="preview"><img alt=""><b></b></div>
-<div class="scrim"><div class="modal" role="dialog" aria-modal="true">
-  <img alt="">
-  <div class="mbar">
-    <div class="nums"></div>
-    <span class="mcap"></span>
-    <button class="act sec mkeep" type="button">Keep this one</button>
-    <button class="act sec mclose" type="button">Close</button>
-  </div>
-</div></div>`;
+`;
 
   function mount() {
     const host = document.createElement('div');
@@ -83,8 +75,6 @@ window.GPDD.ui = window.GPDD.ui || {};
       del: $('.del'), dellbl: $('.dellbl'), min: $('.min'),
       scanbar: $('.scanbar'), scanmsg: $('.scanbar .msg'), scanstop: $('.scanstop'),
       preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
-      scrim: $('.scrim'), modalImg: $('.modal img'), modalCap: $('.mcap'), nums: $('.nums'),
-      mkeep: $('.mkeep'), mclose: $('.mclose'),
       range: null,
     };
     ui.range = buildRange(ui, $);
@@ -100,16 +90,6 @@ window.GPDD.ui = window.GPDD.ui || {};
       ui.panel.classList.toggle('collapsed');
       ui.syncChrome();
     };
-    ui.closeModal = () => preview.closeModal(ui);
-    ui.mclose.onclick = ui.closeModal;
-    // Clicking the backdrop dismisses; clicking the dialog itself must not.
-    ui.scrim.onclick = (e) => { if (e.target === ui.scrim) ui.closeModal(); };
-    root.addEventListener('keydown', (e) => { if (e.key === 'Escape') ui.closeModal(); });
-    document.addEventListener('keydown', (e) => {
-      if (!ui.scrim.classList.contains('on')) return;
-      if (e.key === 'Escape') return ui.closeModal();
-      if (ui.modalKeys) ui.modalKeys(e);
-    }, true);
     ui.syncChrome();
     ui.sim.oninput = () => (ui.simv.textContent = ui.sim.value + '%');
 

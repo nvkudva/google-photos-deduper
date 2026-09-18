@@ -18,7 +18,7 @@
   const has = (f) => flags.includes(f);
 
   const PAGE_CSS = `img, [data-latest-bg], [style*="background-image"] { filter: blur(11px) !important; }`;
-  const PANEL_CSS = `.tile img, .preview img, .modal img { filter: blur(5px); }`;
+  const PANEL_CSS = `.tile img, .preview img { filter: blur(5px); }`;
 
   function blurNames() {
     // The grid itself never prints a name; the sidebar, the album chips and the
