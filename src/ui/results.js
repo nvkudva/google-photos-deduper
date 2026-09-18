@@ -43,146 +43,189 @@ window.GPDD.ui = window.GPDD.ui || {};
     }
   }
 
-  function wheel() {
-    const s = document.createElement('span');
-    s.className = 'spin';
-    s.setAttribute('aria-hidden', 'true');
-    return s;
+  // Parsed once at load and cloned per card, which is cheaper than a chain of
+  // createElement calls at 200 groups. Whitespace between tags is dropped so
+  // the templates can be laid out for reading without adding text nodes.
+  const tpl = (html) => {
+    const t = document.createElement('template');
+    t.innerHTML = html.replace(/>\s+</g, '><').trim();
+    return t.content.firstElementChild;
+  };
+
+  // A node's data-bind names the slots it takes from the data object:
+  // `text:key`, `html:key` (trusted markup only - the icons), `class:key`, or
+  // any attribute or property by name. Values are assigned after cloning and
+  // never interpolated into the markup, so a caption or a URL that came from
+  // Google cannot turn into markup inside the shadow root.
+  function fill(template, data) {
+    const node = template.cloneNode(true);
+    for (const el of [node, ...node.querySelectorAll('[data-bind]')]) {
+      const spec = el.getAttribute('data-bind');
+      if (!spec) continue;
+      el.removeAttribute('data-bind');
+      for (const pair of spec.split(' ')) {
+        const [target, key] = pair.split(':');
+        const v = data[key];
+        if (target === 'text') el.textContent = v;
+        else if (target === 'html') el.innerHTML = v;
+        else if (target === 'class') { if (v) el.classList.add(v); }
+        else if (target in el) el[target] = v;
+        else el.setAttribute(target, v);
+      }
+    }
+    return node;
   }
 
-  // A card's own buttons: skip it, or bin just its duplicates. A skipped card
-  // collapses to its heading and can be brought back, rather than vanishing -
-  // a group that disappeared would look like photos had been deleted.
-  function groupActions(ui, g, state) {
-    const bar = document.createElement('div');
-    bar.className = 'gact';
-    const marked = g.items.filter((it) => it.id !== g.keeperId && state.toDelete.has(it.id));
-    const skip = document.createElement('button');
-    skip.type = 'button';
-    skip.className = 'gskip';
-    skip.textContent = 'Skip';
-    skip.title = 'Leave this group alone';
-    skip.disabled = !!state.running;
-    skip.onclick = () => ui.onGroupSkip && ui.onGroupSkip(g);
-    const bin = document.createElement('button');
-    bin.type = 'button';
-    bin.className = 'gbin';
-    bin.disabled = !marked.length || !!state.running;
-    bin.title = marked.length
-      ? `Move ${marked.length} of these to the bin now — recoverable from the bin`
-      : 'Nothing in this group is marked for the bin';
-    if (state.running && state.runningIds && g.items.some((it) => state.runningIds.has(it.id))) {
-      bin.classList.add('working');
-    }
-    bin.append(wheel(), document.createTextNode(marked.length ? `Move ${marked.length} to bin` : 'Move to bin'));
-    bin.onclick = () => ui.onGroupBin && ui.onGroupBin(g);
-    bar.append(skip, bin);
-    return bar;
+  const CARD = tpl(/* html */ `
+    <div class="grp" data-bind="data-g:g">
+      <h4><span class="when" data-bind="text:when"></span></h4>
+      <div class="tiles"></div>
+    </div>`);
+
+  // A skipped card collapses to its heading and can be brought back, rather
+  // than vanishing - a group that disappeared would look like photos had been
+  // deleted.
+  const SKIPPED = tpl(/* html */ `
+    <div class="grp skipped" data-bind="data-g:g">
+      <h4>
+        <span class="when" data-bind="text:when"></span>
+        <span class="flag" data-bind="text:flag"></span>
+        <div class="gact"><button type="button" data-action="unskip" data-bind="disabled:running">Undo skip</button></div>
+      </h4>
+    </div>`);
+
+  // A card's own buttons: skip it, or bin just its duplicates.
+  const ACTIONS = tpl(/* html */ `
+    <div class="gact">
+      <button type="button" class="gskip" data-action="skip" title="Leave this group alone" data-bind="disabled:running">Skip</button>
+      <button type="button" class="gbin" data-action="bin" data-bind="disabled:binOff title:binHint class:binMode">
+        <span class="spin" aria-hidden="true"></span>
+        <span data-bind="text:binLabel"></span>
+      </button>
+    </div>`);
+
+  const TILE = tpl(/* html */ `
+    <div class="tile" data-bind="class:mode data-id:id">
+      <img alt="" loading="lazy" data-action="keep" data-bind="src:src title:hint">
+      <button class="mark" type="button" data-action="toggle" data-bind="html:icon title:markHint aria-label:markHint"></button>
+    </div>`);
+
+  const MORE = tpl(/* html */ `
+    <div class="more">
+      <span data-bind="text:showing"></span>
+      <button type="button" class="act sec" data-action="more" data-bind="text:label"></button>
+    </div>`);
+
+  // What the last render put on screen. The delegated handlers read it, so a
+  // click on a card finds its group in the array that built the card.
+  let current = null;
+
+  const ACTION = {
+    keep: (g, it) => {
+      g.items.forEach((o) => current.state.toDelete.add(o.id));
+      current.state.toDelete.delete(it.id);
+      current.onChange();
+    },
+    toggle: (g, it) => {
+      const { toDelete } = current.state;
+      if (toDelete.has(it.id)) toDelete.delete(it.id);
+      else toDelete.add(it.id);
+      current.onChange();
+    },
+    skip: (g) => current.ui.onGroupSkip && current.ui.onGroupSkip(g),
+    unskip: (g) => current.ui.onGroupUndoSkip && current.ui.onGroupUndoSkip(g),
+    bin: (g) => current.ui.onGroupBin && current.ui.onGroupBin(g),
+    more: () => {
+      const { groups, state } = current;
+      const from = state.shown;
+      state.shown = Math.min(groups.length, from + PAGE);
+      addSelection(groups, state, from, state.shown);
+      current.onChange();
+    },
+  };
+
+  // One listener on the list instead of one per node: the list is rebuilt on
+  // every change, so per-node listeners would be re-created hundreds of times
+  // over. Each clickable node names its action in the markup.
+  const wired = new WeakSet();
+  function wire(host) {
+    if (wired.has(host)) return;
+    wired.add(host);
+    host.addEventListener('click', (e) => {
+      const hit = e.target.closest('[data-action]');
+      if (!hit || !current) return;
+      const card = hit.closest('.grp');
+      const g = card ? current.groups[Number(card.dataset.g)] : null;
+      const tile = hit.closest('.tile');
+      const it = tile && g ? g.items.find((i) => i.id === tile.dataset.id) : null;
+      ACTION[hit.dataset.action](g, it);
+    });
+    // A thumbnail that will not load shows as an empty frame rather than the
+    // browser's broken-image glyph. error does not bubble, so it is caught on
+    // the way down.
+    host.addEventListener('error', (e) => {
+      const tile = e.target.closest && e.target.closest('.tile');
+      if (!tile || !current) return;
+      tile.classList.add('gone-thumb');
+      e.target.removeAttribute('src');
+      current.broken++;
+      if (current.ui.setThumbWarning) current.ui.setThumbWarning(current.broken);
+    }, true);
+  }
+
+  function groupActions(g, state) {
+    const marked = g.items.filter((it) => it.id !== g.keeperId && state.toDelete.has(it.id)).length;
+    const working = !!(state.running && state.runningIds && g.items.some((it) => state.runningIds.has(it.id)));
+    return fill(ACTIONS, {
+      running: !!state.running,
+      binOff: !marked || !!state.running,
+      binHint: marked
+        ? `Move ${marked} of these to the bin now — recoverable from the bin`
+        : 'Nothing in this group is marked for the bin',
+      binMode: working ? 'working' : '',
+      binLabel: marked ? `Move ${marked} to bin` : 'Move to bin',
+    });
   }
 
   function renderGroups(ui, groups, state, onChange) {
     ui.results.textContent = '';
-    if (!groups.length) {
-      ui.results.textContent = '';
-      return;
-    }
+    if (!groups.length) return;
     if (!state.dismissed) state.dismissed = new Set();
+    wire(ui.results);
+    current = { ui, groups, state, onChange, broken: 0 };
     const live = liveThumbs();
-    let broken = 0;
     const frag = document.createDocumentFragment();
     if (!state.shown || state.shown > groups.length) state.shown = Math.min(groups.length, PAGE);
     groups.slice(0, state.shown).forEach((g, gi) => {
-      const box = document.createElement('div');
-      box.className = 'grp';
-      const h = document.createElement('h4');
       const when = g.items[0].ts ? new Date(g.items[0].ts).toLocaleDateString() : 'unknown date';
-      const date = document.createElement('span');
-      date.className = 'when';
-      date.textContent = when;
-      h.append(date);
-      box.append(h);
       if (g.items.every((it) => state.dismissed.has(it.id))) {
-        box.className = 'grp skipped';
-        const flag = document.createElement('span');
-        flag.className = 'flag';
-        flag.textContent = `${g.items.length} similar photos · skipped`;
-        h.append(flag);
-        const bar = document.createElement('div');
-        bar.className = 'gact';
-        const undo = document.createElement('button');
-        undo.type = 'button';
-        undo.textContent = 'Undo skip';
-        undo.disabled = !!state.running;
-        undo.onclick = () => ui.onGroupUndoSkip && ui.onGroupUndoSkip(g);
-        bar.append(undo);
-        h.append(bar);
-        frag.append(box);
+        frag.append(fill(SKIPPED, { g: gi, when, flag: `${g.items.length} similar photos · skipped`, running: !!state.running }));
         return;
       }
-      h.append(groupActions(ui, g, state));
-      const tiles = document.createElement('div');
-      tiles.className = 'tiles';
-      const keepItem = (item) => {
-        g.items.forEach((o) => state.toDelete.add(o.id));
-        state.toDelete.delete(item.id);
-        onChange();
-      };
-      g.items.forEach((it, idx) => {
-        const t = document.createElement('div');
+      const box = fill(CARD, { g: gi, when });
+      box.querySelector('h4').append(groupActions(g, state));
+      const tiles = box.querySelector('.tiles');
+      g.items.forEach((it) => {
         const marked = state.toDelete.has(it.id);
-        t.className = 'tile ' + (marked ? 'bin' : 'keeper');
-        t.dataset.id = it.id;
-        const img = document.createElement('img');
-        const src = live.get(it.id) || it.thumb || '';
-        img.src = src;
-        img.loading = 'lazy';
-        img.alt = '';
-        img.onerror = () => {
-          t.classList.add('gone-thumb');
-          img.removeAttribute('src');
-          broken++;
-          if (ui.setThumbWarning) ui.setThumbWarning(broken);
-        };
-        img.title = marked ? 'Keep this one instead' : 'Keeping this one';
-        img.onclick = () => keepItem(it);
-        // The badge is the per-item toggle the old text caption used to be.
-        const mark = document.createElement('button');
-        mark.type = 'button';
-        mark.className = 'mark';
-        mark.innerHTML = marked ? ICON.cross : ICON.check;
-        mark.title = marked ? 'Going to the bin — click to keep' : 'Keeping — click to send to the bin';
-        mark.setAttribute('aria-label', mark.title);
-        mark.onclick = () => {
-          if (state.toDelete.has(it.id)) state.toDelete.delete(it.id);
-          else state.toDelete.add(it.id);
-          onChange();
-        };
-        preview.attachPreview(ui, img, it);
-        t.append(img, mark);
+        const t = fill(TILE, {
+          mode: marked ? 'bin' : 'keeper',
+          id: it.id,
+          src: live.get(it.id) || it.thumb || '',
+          hint: marked ? 'Keep this one instead' : 'Keeping this one',
+          icon: marked ? ICON.cross : ICON.check,
+          markHint: marked ? 'Going to the bin — click to keep' : 'Keeping — click to send to the bin',
+        });
+        preview.attachPreview(ui, t.querySelector('img'), it);
         tiles.append(t);
       });
-      box.append(tiles);
       frag.append(box);
     });
 
     if (groups.length > state.shown) {
-      const rest = groups.length - state.shown;
-      const bar = document.createElement('div');
-      bar.className = 'more';
-      const label = document.createElement('span');
-      label.textContent = `Showing ${state.shown} of ${groups.length} groups`;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'act sec';
-      btn.textContent = `Show ${Math.min(PAGE, rest)} more`;
-      btn.onclick = () => {
-        const from = state.shown;
-        state.shown = Math.min(groups.length, from + PAGE);
-        addSelection(groups, state, from, state.shown);
-        onChange();
-      };
-      bar.append(label, btn);
-      frag.append(bar);
+      frag.append(fill(MORE, {
+        showing: `Showing ${state.shown} of ${groups.length} groups`,
+        label: `Show ${Math.min(PAGE, groups.length - state.shown)} more`,
+      }));
     }
     ui.results.append(frag);
   }
