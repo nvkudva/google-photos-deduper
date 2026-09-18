@@ -25,12 +25,14 @@ window.GPDD.ui = window.GPDD.ui || {};
   // Bumped on every hover. A large image that finishes loading after the
   // pointer has moved on must not overwrite the newer preview.
   let previewSeq = 0;
+  // Shared by every tile: a tile's own timer cannot be cancelled by the next
+  // tile's mouseenter, so the pending hide would fire after the swap.
+  let previewTimer = null;
 
   // Sits to the left of the panel, vertically centred on the hovered tile and
   // clamped to the viewport. A short delay keeps it from flashing while the
   // pointer sweeps across a row.
   function attachPreview(ui, img, item) {
-    let timer = null;
     // Position has to be recomputed once the image lands: before it loads the
     // box has no real height, so a tall photo would be placed off the bottom.
     const place = () => {
@@ -76,12 +78,16 @@ window.GPDD.ui = window.GPDD.ui || {};
     };
 
     img.addEventListener('mouseenter', () => {
-      clearTimeout(timer);
-      timer = setTimeout(show, 120);
+      clearTimeout(previewTimer);
+      // Already open on the previous tile, so swap straight to this one rather
+      // than making the pointer wait through the open delay again.
+      previewTimer = setTimeout(show, ui.preview.classList.contains('on') ? 0 : 120);
     });
+    // Lingers half a second on the way out, so sweeping off a tile does not
+    // blink the preview away before the next one is under the pointer.
     img.addEventListener('mouseleave', () => {
-      clearTimeout(timer);
-      ui.preview.classList.remove('on');
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(() => ui.preview.classList.remove('on'), 500);
     });
   }
 
