@@ -3,6 +3,16 @@
 A Chrome extension that scans the Google Photos library of whoever is signed in,
 finds visually duplicate photos, and moves the ones you choose to the bin.
 
+## Features
+
+- **Fast** — a small perceptual hash of every photo is kept in a local IndexedDB, so a
+  library is scanned once and regrouping after that is instant.
+- **Scales** — built for libraries in the tens of thousands. Photos are listed/scanned in bulk in background. So no scrolling to scan all photos.
+- **Tunable** — one similarity slider, 70% to 100%. Set it to 100% to match only
+  exact copies, or ease it down to catch crops, re-saves and re-compressions of
+  the same shot.
+- **Recoverable** — Deleting moves photos to the Google Photos Trashbin where they sit for a month, and Undo puts the last run straight back.
+
 Independent: not made by, endorsed by, or affiliated with Google. Named "Google
 Photos DeDuper" until the store listing was prepared — the store forbids a name
 that implies affiliation. Listing copy is in [STORE.md](STORE.md); build the
@@ -10,10 +20,10 @@ upload zip with `tools/package.sh`.
 
 ![The panel open over a Google Photos library, showing scan progress and duplicate groups](store/screenshots/01-review.png)
 
-*The panel docked over the library: range, similarity, and each duplicate group
+_The panel docked over the library: range, similarity, and each duplicate group
 with its keeper ringed green. Photos are blurred in every screenshot here — a
 real library is somebody's family, so `src/dev-shot.js` blurs the page before
-anything is captured.*
+anything is captured._
 
 ## Why it works this way
 
@@ -22,18 +32,18 @@ list/get/search/batchCreate/patch, and `albums.batchRemoveMediaItems` only
 unlinks items from an album your own app created. So any deduper has to drive
 the photos.google.com UI. Everything below was verified against the live site.
 
-| What | Finding |
-|---|---|
-| Tile | `a[href*="/photo/"]` — `./photo/<id>` in the main library, `./documents/<album>/photo/<id>` in album and Screenshots views; id is the segment after `/photo/` |
-| Capture date | in the tile's `aria-label` (`"Photo – Portrait – 24 Aug 2025, 12:34:56"`) — free, no extra request |
-| Thumbnail | `background-image` on a `[data-latest-bg]` descendant, served from `photos.fife.usercontent.google.com` |
-| Listing | the page's own timeline RPC (`lcxiM`) returns 500 items per request, newest first, with media key, dedup key, capture time, dimensions and a thumbnail base URL; a timestamp argument starts the listing at that date |
+| What             | Finding                                                                                                                                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tile             | `a[href*="/photo/"]` — `./photo/<id>` in the main library, `./documents/<album>/photo/<id>` in album and Screenshots views; id is the segment after `/photo/`                                                                                                                        |
+| Capture date     | in the tile's `aria-label` (`"Photo – Portrait – 24 Aug 2025, 12:34:56"`) — free, no extra request                                                                                                                                                                                   |
+| Thumbnail        | `background-image` on a `[data-latest-bg]` descendant, served from `photos.fife.usercontent.google.com`                                                                                                                                                                              |
+| Listing          | the page's own timeline RPC (`lcxiM`) returns 500 items per request, newest first, with media key, dedup key, capture time, dimensions and a thumbnail base URL; a timestamp argument starts the listing at that date                                                                |
 | Thumbnail pixels | readable by a **credentialed** fetch from the content script (`credentials: "include"`, ~1.2KB at 32px). `crossOrigin="anonymous"` gets a transparent placeholder and a cookieless service-worker fetch gets a sign-in page, which is what the earlier "not readable" verdict tested |
-| Grid | virtualised — ~130 tiles live, ~108 dropped per 6000px of scroll |
-| Scroll container | a `c-wiz` in the main library, a plain `div[jsname]` in album views — found by walking up from a tile, not by tag |
-| Selection | per-tile `[role="checkbox"]`; date headers use the same role, labelled `"Select all …"` |
-| Deletion | the page's own `batchexecute` RPC (`XwAOJf`), which takes each photo's dedup key rather than the `/photo/<id>` media key; the media-info RPC (`VrseUb`) maps one to the other |
-| Input | **scripted clicks are ignored** — `.click()` and full synthetic pointer/mouse sequences both fail, including on the always-visible "Clear selection" button — which is why deletion talks to the RPC instead of the page |
+| Grid             | virtualised — ~130 tiles live, ~108 dropped per 6000px of scroll                                                                                                                                                                                                                     |
+| Scroll container | a `c-wiz` in the main library, a plain `div[jsname]` in album views — found by walking up from a tile, not by tag                                                                                                                                                                    |
+| Selection        | per-tile `[role="checkbox"]`; date headers use the same role, labelled `"Select all …"`                                                                                                                                                                                              |
+| Deletion         | the page's own `batchexecute` RPC (`XwAOJf`), which takes each photo's dedup key rather than the `/photo/<id>` media key; the media-info RPC (`VrseUb`) maps one to the other                                                                                                        |
+| Input            | **scripted clicks are ignored** — `.click()` and full synthetic pointer/mouse sequences both fail, including on the always-visible "Clear selection" button — which is why deletion talks to the RPC instead of the page                                                             |
 
 Scanning never touches the grid: the library is listed through the same
 `batchexecute` RPC the page uses to fill its timeline, 500 items a request, and
@@ -92,6 +102,7 @@ Only then raise the cap.
    image rather than an upscale.
 
    The minimise button collapses the panel to its title bar.
+
 4. **Dry run** first — it reports what it would delete and touches nothing.
 5. **Move selected to bin** — click it twice (the button arms itself for five
    seconds rather than opening a dialog; a content script's native `confirm()`
@@ -129,7 +140,7 @@ content script listens for a page event that asks the service worker to restart
 itself:
 
 ```js
-document.dispatchEvent(new Event('gpdd-reload'))
+document.dispatchEvent(new Event("gpdd-reload"));
 ```
 
 Run that in DevTools on a Google Photos tab, then reload the page. It restarts
@@ -180,3 +191,11 @@ media info (`VrseUb`), the bin listing (`zy0IHe`) and the trash/restore call
 [xob0t/Google-Photos-Toolkit](https://github.com/xob0t/Google-Photos-Toolkit)
 (MIT), which reverse-engineered and has maintained them since 2024. This
 extension would have needed the same months of traffic capture without it.
+
+## Disclaimer
+
+This extension is provided as is, with no warranty of any kind. It deletes
+photos from a real Google account, and the developer accepts no responsibility
+for any data loss, however caused. Deletes are recoverable from the Google
+Photos bin for 60 days — check that a run did what you expected before that
+window closes. Use it at your own risk.
