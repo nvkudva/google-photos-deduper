@@ -8,6 +8,13 @@ Photos DeDuper" until the store listing was prepared — the store forbids a nam
 that implies affiliation. Listing copy is in [STORE.md](STORE.md); build the
 upload zip with `tools/package.sh`.
 
+![The panel open over a Google Photos library, showing scan progress and duplicate groups](store/screenshots/01-review.png)
+
+*The panel docked over the library: range, similarity, and each duplicate group
+with its keeper ringed green. Photos are blurred in every screenshot here — a
+real library is somebody's family, so `src/dev-shot.js` blurs the page before
+anything is captured.*
+
 ## Why it works this way
 
 The Google Photos Library API has **no delete method** — `mediaItems` exposes
@@ -93,6 +100,8 @@ Only then raise the cap.
    **Keep this one** applies to whatever is on screen. Escape, Close, or a click
    outside dismisses it. The minimise button collapses the panel to its
    title bar.
+
+   ![The maximised full-page view, one duplicate group per row](store/screenshots/02-maximised.png)
 4. **Dry run** first — it reports what it would delete and touches nothing.
 5. **Move selected to bin** — click it twice (the button arms itself for five
    seconds rather than opening a dialog; a content script's native `confirm()`
