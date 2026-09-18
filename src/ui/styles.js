@@ -104,7 +104,6 @@ button.pill i { font-style: normal; color: var(--fg-3); margin-left: 5px; font-s
 .rest .all { border: 0; background: transparent; padding: 0; cursor: pointer;
   color: var(--accent); font: 400 var(--t1)/1.2 var(--ui); }
 .rest .all:disabled { color: var(--fg-3); cursor: default; }
-.panel.maxed .range { margin: 0; }
 
 /* Shown in place of the panel while a scan runs. The panel used to be hidden
    and restored around every screenshot, which read as a flicker once a second;
@@ -212,45 +211,7 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
   justify-content: center; gap: 7px; }
 .ft .del svg { flex: 0 0 auto; width: 16px; height: 16px; fill: currentColor; }
 
-/* Inset from every edge so the maximised state reads as a popup over Google
-   Photos rather than a replacement for it. */
-.panel.maxed { inset: min(48px, 5vh) min(64px, 5vw); width: auto; max-height: none;
-  border: 1px solid var(--hair); border-radius: var(--r2);
-  box-shadow: 0 32px 80px rgba(0,0,0,.65); }
-.panel.maxed .hd { padding: 12px var(--s3) 12px var(--s5); }
-.panel.maxed .body { padding: 0 var(--s5) var(--s5); }
-.panel.maxed .controls { position: sticky; top: 0; z-index: 2; background: var(--bg);
-  display: flex; flex-direction: column; align-items: center;
-  margin: 0 calc(var(--s5) * -1); padding: var(--s4) var(--s5) var(--s3);
-  border-bottom: 1px solid var(--hair); }
-.panel.maxed .controls > * { width: 100%; max-width: none; }
-.panel.maxed .fields { display: flex; align-items: center; margin: var(--s3) 0; padding: var(--s1) var(--s4); }
-.panel.maxed .field { min-height: 44px; }
-.panel.maxed .field:first-child { flex: 0 1 320px; }
-.panel.maxed .field + .field { border-top: 0; border-left: 1px solid var(--hair);
-  margin-left: var(--s4); padding-left: var(--s4); }
-.panel.maxed .field .lbl { flex: 0 0 auto; }
-.panel.maxed .bar { margin-top: var(--s3); }
-.panel.maxed .results { max-width: none; }
-.panel.maxed .ft .row { width: 100%; max-width: none; }
-.panel.maxed .grp { display: flex; align-items: stretch; gap: var(--s4);
-  padding: var(--s4); margin-bottom: var(--s3); }
-/* The count and date share one cell as the row's first column, so the photos
-   get the full remaining width instead of sitting under a heading. */
-.panel.maxed .grp h4 { flex: 0 0 132px; display: flex; flex-direction: column;
-  align-items: flex-start; justify-content: center; gap: 2px; margin-bottom: 0;
-  font-size: var(--t3); padding-right: var(--s4); border-right: 1px solid var(--hair); }
-.panel.maxed .grp h4 .when { white-space: nowrap; }
-.panel.maxed .tiles { display: flex; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; align-items: flex-start; }
-.panel.maxed .tiles { gap: var(--s3); }
-.panel.maxed .tile { width: auto; height: 240px; aspect-ratio: auto; }
-.panel.maxed .tile img { width: auto; height: 100%; object-fit: cover; background: none; }
-.panel.maxed .tiles { align-items: flex-start; }
-.panel.maxed .mark { width: 23px; height: 23px; top: 6px; left: 6px; }
-.panel.maxed .mark svg { width: 14px; height: 14px; }
-
-/* Must outrank .panel, which the maximised state paints opaque over the whole
-   viewport; the scrim sits after it in the DOM so an equal z-index wins. */
+/* The scrim sits after .panel in the DOM so an equal z-index wins. */
 .scrim { position: fixed; inset: 0; z-index: 2147483647; display: none;
   background: rgba(0,0,0,.72); align-items: center; justify-content: center; }
 .scrim.on { display: flex; }
@@ -304,9 +265,6 @@ button.act:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px
 .gact button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .grp.skipped { opacity: .6; }
 .grp.skipped h4 { margin-bottom: 0; }
-.panel.maxed .grp.skipped { display: block; }
-.panel.maxed .grp.skipped h4 { flex: 1 1 auto; flex-direction: row; align-items: center;
-  border-right: 0; padding-right: 0; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 `;

@@ -8,7 +8,7 @@ window.GPDD.ui = window.GPDD.ui || {};
 
   const HTML = `
 <div class="panel">
-  <div class="hd"><b>Photo DeDuper</b><button class="max" title="Maximise"></button><button class="min" title="Minimise"></button></div>
+  <div class="hd"><b>Photo DeDuper</b><button class="min" title="Minimise"></button></div>
   <div class="body">
     <div class="controls">
     <div class="warn" style="display:none"></div>
@@ -85,27 +85,21 @@ window.GPDD.ui = window.GPDD.ui || {};
       preview: $('.preview'), previewImg: $('.preview img'), previewCap: $('.preview b'),
       scrim: $('.scrim'), modalImg: $('.modal img'), modalCap: $('.mcap'), nums: $('.nums'),
       mkeep: $('.mkeep'), mclose: $('.mclose'),
-      max: $('.max'),
       range: null,
     };
     ui.range = buildRange(ui, $);
     ui.del.insertAdjacentHTML('afterbegin', ICON.bin);
 
-    // Both buttons reflect their state rather than always showing one icon.
+    // The button reflects its state rather than always showing one icon.
     ui.syncChrome = () => {
       const collapsed = ui.panel.classList.contains('collapsed');
-      const maxed = ui.panel.classList.contains('maxed');
       ui.min.innerHTML = collapsed ? ICON.expand : ICON.minimise;
       ui.min.title = collapsed ? 'Expand' : 'Minimise';
-      ui.max.innerHTML = maxed ? ICON.restore : ICON.maximise;
-      ui.max.title = maxed ? 'Restore' : 'Maximise';
-      ui.min.style.display = maxed ? 'none' : '';
     };
     ui.min.onclick = () => {
       ui.panel.classList.toggle('collapsed');
       ui.syncChrome();
     };
-    ui.isMaxed = () => ui.panel.classList.contains('maxed');
     ui.closeModal = () => preview.closeModal(ui);
     ui.mclose.onclick = ui.closeModal;
     // Clicking the backdrop dismisses; clicking the dialog itself must not.

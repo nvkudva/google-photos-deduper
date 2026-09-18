@@ -86,10 +86,7 @@ window.GPDD.ui = window.GPDD.ui || {};
       ui.results.textContent = '';
       return;
     }
-    // Maximised tiles are 200px, so they need a bigger render than the 144px
-    // grid thumbnail, and the hover preview is redundant at that size.
     if (!state.dismissed) state.dismissed = new Set();
-    const maxed = !!(ui.isMaxed && ui.isMaxed());
     const live = liveThumbs();
     let broken = 0;
     const frag = document.createDocumentFragment();
@@ -137,7 +134,7 @@ window.GPDD.ui = window.GPDD.ui || {};
         t.dataset.id = it.id;
         const img = document.createElement('img');
         const src = live.get(it.id) || it.thumb || '';
-        img.src = maxed ? preview.bigUrl(src, 512) : src;
+        img.src = src;
         img.loading = 'lazy';
         img.alt = '';
         img.onerror = () => {
@@ -146,12 +143,8 @@ window.GPDD.ui = window.GPDD.ui || {};
           broken++;
           if (ui.setThumbWarning) ui.setThumbWarning(broken);
         };
-        img.title = maxed
-          ? 'Click to view full size'
-          : marked
-            ? 'Keep this one instead'
-            : 'Keeping this one';
-        img.onclick = maxed ? () => preview.openModal(ui, g, idx, state, keepItem) : () => keepItem(it);
+        img.title = 'Click to view full size';
+        img.onclick = () => preview.openModal(ui, g, idx, state, keepItem);
         // The badge is the per-item toggle the old text caption used to be.
         const mark = document.createElement('button');
         mark.type = 'button';
@@ -164,7 +157,7 @@ window.GPDD.ui = window.GPDD.ui || {};
           else state.toDelete.add(it.id);
           onChange();
         };
-        if (!maxed) preview.attachPreview(ui, img, it);
+        preview.attachPreview(ui, img, it);
         t.append(img, mark);
         tiles.append(t);
       });

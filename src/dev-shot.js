@@ -3,14 +3,13 @@
 //
 // Store screenshots have to be taken against a real library, and a real library
 // is somebody's family. Loading the page with
-//   https://photos.google.com/#gpdd-shot=blur,max
+//   https://photos.google.com/#gpdd-shot=blur,arm
 // blurs every photo on the page and in the panel with CSS before anything is
 // captured, and can put the panel into the state the shot needs. Nothing is
 // uploaded and nothing is changed - it is a filter over what is already drawn.
 //
 //   blur  every thumbnail, in the grid and in the panel, plus the few places
 //         Google Photos prints a person's name
-//   max   maximise the panel
 //   arm   click the delete button once, to show the confirm step (one click
 //         only arms it; it never deletes)
 (() => {
@@ -53,12 +52,6 @@
       blurNames();
       // Google Photos renders as you scroll, so late tiles need the same pass.
       new MutationObserver(blurNames).observe(document.body, { childList: true, subtree: true });
-    }
-    if (has('max')) {
-      root.querySelector('.max').click();
-      // Maximising re-renders every card; the shot wants the list from the top.
-      await new Promise((r) => setTimeout(r, 800));
-      root.querySelector('.body').scrollTop = 0;
     }
     // The confirm step disarms itself after 15 seconds, which is shorter than
     // it takes to line a shot up, so it is re-armed until the capture happens.

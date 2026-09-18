@@ -1,5 +1,5 @@
-// Hover preview for grid-sized tiles, and the click-to-open dialog for the
-// maximised view. Both rewrite the thumbnail URL to ask for a larger render.
+// Hover preview for the tiles, and the click-to-open dialog behind them. Both
+// rewrite the thumbnail URL to ask for a larger render.
 window.GPDD = window.GPDD || {};
 window.GPDD.ui = window.GPDD.ui || {};
 
@@ -85,10 +85,9 @@ window.GPDD.ui = window.GPDD.ui || {};
     });
   }
 
-  // Maximised tiles are big enough that a hover preview would be more nuisance
-  // than help, so there it is a click instead: a fixed, centred dialog that
-  // stays put until dismissed, and carries the keeper action so clicking a
-  // photo does not lose the decision it used to make.
+  // Hovering shows a photo; clicking commits to looking at it. The dialog is
+  // fixed and centred, stays put until dismissed, and carries the keeper action
+  // so clicking a photo does not lose the decision it used to make.
   let modalSeq = 0;
 
   // Takes the whole group, not one photo: numbered buttons switch between the
@@ -96,6 +95,11 @@ window.GPDD.ui = window.GPDD.ui || {};
   // so a decision can be made by looking rather than by remembering.
   function openModal(ui, group, startIdx, state, keepItem) {
     let idx = startIdx;
+    // Clicking never fires mouseleave, so the hover preview that opened the
+    // photo would otherwise sit behind the dialog; bumping the sequence also
+    // stops a large image still in flight from putting it back.
+    previewSeq++;
+    ui.preview.classList.remove('on');
 
     const draw = () => {
       const item = group.items[idx];

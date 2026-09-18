@@ -43,13 +43,12 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 | File | Shows |
 | --- | --- |
 | `01-review.png` | The panel over the grid, result cards with their Skip and bin buttons |
-| `02-maximised.png` | The maximised review view, photos big enough to judge |
 | `03-confirm.png` | The confirm step, with the status line spelling out what the next click does |
 
 They were taken against a real library, so every photo is blurred in CSS before
 capture — a listing screenshot is public. `src/dev-shot.js` does the blurring;
-load the page as `https://photos.google.com/?shot=1#gpdd-shot=blur` (add `,max`
-or `,arm` for the other two), then capture the viewport and scale it:
+load the page as `https://photos.google.com/?shot=1#gpdd-shot=blur` (add `,arm`
+for the confirm step), then capture the viewport and scale it:
 
 ```
 screencapture -x -R<x>,<y>,1440,900 /tmp/s.png
