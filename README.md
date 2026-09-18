@@ -129,7 +129,7 @@ and each registers itself on `window.GPDD`.
   `styles` (design tokens and the shared chrome, controls and buttons) and
   `icons` (inline SVG), `range` (month slider), `preview` (the hover preview),
   `results` (group cards, paging, selection), `panel` (template, `mount()`,
-  status setters). Each of `range`, `preview` and `results` carries its own
+  status setters), `nav` (the Deduper entry in Google Photos' sidebar). Each of `range`, `preview` and `results` carries its own
   markup and CSS next to its code; `panel` concatenates the four stylesheets.
 - `src/content.js` — wiring: state, the scan flow and the delete flow.
 - `src/background.js` — extension reload and the toolbar button only.

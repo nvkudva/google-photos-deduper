@@ -8,7 +8,7 @@ window.GPDD.ui = window.GPDD.ui || {};
 
   const HTML = /* HTML */ `
     <div class="panel" data-ref="panel">
-      <div class="hd"><b>Photo DeDuper</b><button class="min" data-ref="min" title="Minimise"></button></div>
+      <div class="hd"><b>Photo DeDuper</b><button class="min" data-ref="min" title="Minimise"></button><button class="close" data-ref="close" title="Close"></button></div>
       <div class="body">
         <div class="controls">
           <div class="warn" data-ref="warn" style="display:none"></div>
@@ -90,6 +90,8 @@ window.GPDD.ui = window.GPDD.ui || {};
       ui.syncChrome();
     };
     ui.syncChrome();
+    ui.close.innerHTML = ICON.close;
+    ui.close.onclick = () => ui.toggle(false);
     ui.sim.oninput = () => (ui.simv.textContent = ui.sim.value + '%');
 
     // While a scan runs the panel steps aside for a compact bar.
@@ -128,7 +130,12 @@ window.GPDD.ui = window.GPDD.ui || {};
       ui.warn.style.display = t ? 'block' : 'none';
       ui.warn.textContent = t || '';
     };
-    ui.toggle = () => (host.style.display = host.style.display === 'none' ? '' : 'none');
+    // Shows or hides the whole panel. Called with no argument it flips; the
+    // sidebar entry listens so it can mark itself selected while the panel is up.
+    ui.toggle = (on = host.style.display === 'none') => {
+      host.style.display = on ? '' : 'none';
+      if (ui.onVisibility) ui.onVisibility(on);
+    };
     return ui;
   }
 

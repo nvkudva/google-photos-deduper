@@ -2,11 +2,12 @@ window.GPDD = window.GPDD || {};
 
 (() => {
   const { sel, store, scanner, grouping, api } = window.GPDD;
-  const { mount, results } = window.GPDD.ui;
+  const { mount, results, nav } = window.GPDD.ui;
   if (window.__gpddBooted) return;
   window.__gpddBooted = true;
 
   const ui = mount();
+  nav.mount(ui);
   const state = {
     groups: [], toDelete: new Set(), dismissed: new Set(), runningIds: new Set(),
     running: false, stop: false,
