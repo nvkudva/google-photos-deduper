@@ -262,7 +262,7 @@ window.GPDD = window.GPDD || {};
     beginRun({ stoppable: false });
     ui.setBusy(true);
     ui.setStatus(`Putting ${last.keys.size} back…`, { keepUndo: true });
-    let back;
+    let back = null;
     try {
       back = await api.restore(last.keys, {
         onProgress: (p) => { if (p.log) ui.addLog(p.log); },
@@ -271,9 +271,11 @@ window.GPDD = window.GPDD || {};
       ui.setWarn(`Undo failed: ${e.message || e}`);
       ui.setStatus('Nothing was restored — the photos are still in the bin.', { keepUndo: true });
       ui.undo.disabled = false;
-      back = null;
     }
-    if (back) try {
+    // One finally for both halves: a restore that throws must release the
+    // lock too, or Scan stays disabled until the page is reloaded.
+    try {
+      if (!back) return;
       // Only the photos Google's reply names go back in the store, so a partial
       // restore leaves the rest out of the results rather than showing rows for
       // photos still in the bin.
