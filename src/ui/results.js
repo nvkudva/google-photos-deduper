@@ -34,7 +34,6 @@ window.GPDD.ui = window.GPDD.ui || {};
   const PAGE = 200;
 
   function addSelection(groups, state, from, to) {
-    if (!state.dismissed) state.dismissed = new Set();
     for (let i = from; i < to; i++) {
       const g = groups[i];
       g.items.forEach((it) => {
@@ -335,17 +334,28 @@ window.GPDD.ui = window.GPDD.ui || {};
   // click on a card finds its group in the array that built the card.
   let current = null;
 
+  // Keep and toggle change one card, so only that card is redrawn; the rest of
+  // the list, and its thumbnails, stay as they are. The host is told through
+  // onSelect so the delete button can follow the count.
+  function selected(card, g, gi) {
+    card.replaceWith(buildCard(g, gi, current.state, thumbsOf(card)));
+    if (current.ui.onSelect) current.ui.onSelect();
+    else current.onChange();
+  }
+  const thumbsOf = (card) =>
+    new Map([...card.querySelectorAll('.tile img[src]')].map((img) => [img.closest('.tile').dataset.id, img.src]));
+
   const ACTION = {
-    keep: (g, it) => {
+    keep: (g, it, card, gi) => {
       g.items.forEach((o) => current.state.toDelete.add(o.id));
       current.state.toDelete.delete(it.id);
-      current.onChange();
+      selected(card, g, gi);
     },
-    toggle: (g, it) => {
+    toggle: (g, it, card, gi) => {
       const { toDelete } = current.state;
       if (toDelete.has(it.id)) toDelete.delete(it.id);
       else toDelete.add(it.id);
-      current.onChange();
+      selected(card, g, gi);
     },
     skip: (g) => current.ui.onGroupSkip && current.ui.onGroupSkip(g),
     unskip: (g) => current.ui.onGroupUndoSkip && current.ui.onGroupUndoSkip(g),
@@ -360,20 +370,27 @@ window.GPDD.ui = window.GPDD.ui || {};
   };
 
   // One listener on the list instead of one per node: the list is rebuilt on
-  // every change, so per-node listeners would be re-created hundreds of times
-  // over. Each clickable node names its action in the markup.
+  // every scan and paging, so per-node listeners would be re-created hundreds
+  // of times over. Each clickable node names its action in the markup.
   const wired = new WeakSet();
-  function wire(host) {
+  function wire(ui) {
+    const host = ui.results;
     if (wired.has(host)) return;
     wired.add(host);
     host.addEventListener('click', (e) => {
       const hit = e.target.closest('[data-action]');
       if (!hit || !current) return;
       const card = hit.closest('.grp');
-      const g = card ? current.groups[Number(card.dataset.g)] : null;
+      const gi = card ? Number(card.dataset.g) : -1;
+      const g = card ? current.groups[gi] : null;
       const tile = hit.closest('.tile');
       const it = tile && g ? g.items.find((i) => i.id === tile.dataset.id) : null;
-      ACTION[hit.dataset.action](g, it);
+      ACTION[hit.dataset.action](g, it, card, gi);
+    });
+    preview.wire(ui, host, (img) => {
+      const tile = img.closest('.tile');
+      const g = current && current.groups[Number(tile.closest('.grp').dataset.g)];
+      return g && g.items.find((i) => i.id === tile.dataset.id);
     });
     // A thumbnail that will not load shows as an empty frame rather than the
     // browser's broken-image glyph. error does not bubble, so it is caught on
@@ -406,41 +423,40 @@ window.GPDD.ui = window.GPDD.ui || {};
     });
   }
 
-  function renderGroups(ui, groups, state, onChange) {
-    ui.results.textContent = '';
-    if (!groups.length) return;
-    if (!state.dismissed) state.dismissed = new Set();
-    wire(ui.results);
-    current = { ui, groups, state, onChange, broken: 0 };
-    const live = liveThumbs();
-    const frag = document.createDocumentFragment();
-    if (!state.shown || state.shown > groups.length) state.shown = Math.min(groups.length, PAGE);
-    groups.slice(0, state.shown).forEach((g, gi) => {
-      const when = g.items[0].ts ? new Date(g.items[0].ts).toLocaleDateString() : 'unknown date';
-      if (g.items.every((it) => state.dismissed.has(it.id))) {
-        frag.append(
-          fill(SKIPPED, { g: gi, when, flag: `${g.items.length} similar photos · skipped`, running: !!state.running }),
-        );
-        return;
-      }
-      const box = fill(CARD, { g: gi, when });
-      box.querySelector('h4').append(groupActions(g, state));
-      const tiles = box.querySelector('.tiles');
-      g.items.forEach((it) => {
-        const marked = state.toDelete.has(it.id);
-        const t = fill(TILE, {
+  // One card. `live` maps photo id to a thumbnail URL fresher than the store's.
+  function buildCard(g, gi, state, live) {
+    const when = g.items[0].ts ? new Date(g.items[0].ts).toLocaleDateString() : 'unknown date';
+    if (g.items.every((it) => state.dismissed.has(it.id))) {
+      return fill(SKIPPED, { g: gi, when, flag: `${g.items.length} similar photos · skipped`, running: !!state.running });
+    }
+    const box = fill(CARD, { g: gi, when });
+    box.querySelector('h4').append(groupActions(g, state));
+    const tiles = box.querySelector('.tiles');
+    g.items.forEach((it) => {
+      const marked = state.toDelete.has(it.id);
+      tiles.append(
+        fill(TILE, {
           mode: marked ? 'bin' : 'keeper',
           id: it.id,
           src: live.get(it.id) || it.thumb || '',
           hint: marked ? 'Keep this one instead' : 'Keeping this one',
           icon: marked ? ICON.cross : ICON.check,
           markHint: marked ? 'Going to the bin — click to keep' : 'Keeping — click to send to the bin',
-        });
-        preview.attachPreview(ui, t.querySelector('img'), it);
-        tiles.append(t);
-      });
-      frag.append(box);
+        }),
+      );
     });
+    return box;
+  }
+
+  function renderGroups(ui, groups, state, onChange) {
+    ui.results.textContent = '';
+    if (!groups.length) return;
+    wire(ui);
+    current = { ui, groups, state, onChange, broken: 0 };
+    const live = liveThumbs();
+    const frag = document.createDocumentFragment();
+    if (!state.shown || state.shown > groups.length) state.shown = Math.min(groups.length, PAGE);
+    groups.slice(0, state.shown).forEach((g, gi) => frag.append(buildCard(g, gi, state, live)));
 
     if (groups.length > state.shown) {
       frag.append(

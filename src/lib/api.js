@@ -128,11 +128,9 @@ window.GPDD = window.GPDD || {};
     const report = () =>
       onProgress({ deleted: deleted.length, skipped: skipped.length, remaining: targets.length - deleted.length - skipped.length });
 
-    while (next < targets.length) {
-      if (shouldStop()) { stoppedEarly = true; break; }
-      const chunk = targets.slice(next, next + TRASH_BATCH);
-      next += chunk.length;
-
+    // mediaKey -> dedupKey for the chunk. Anything without one is skipped or,
+    // if it is already in the bin, taken out of the store.
+    const resolveKeys = async (chunk) => {
       const keys = new Map();
       for (let i = 0; i < chunk.length; i += INFO_BATCH) {
         const part = chunk.slice(i, i + INFO_BATCH);
@@ -161,8 +159,12 @@ window.GPDD = window.GPDD || {};
           unknown.forEach((id) => skipped.push(id));
         }
       }
-      if (!keys.size) { report(); continue; }
+      return keys;
+    };
 
+    // Bins the photos in keys (mediaKey -> dedupKey), each by the key that was
+    // returned against its own media key.
+    const binChunk = async (keys) => {
       const ids = [...keys.keys()];
       let receipt;
       try {
@@ -170,8 +172,7 @@ window.GPDD = window.GPDD || {};
       } catch (e) {
         log(`${ids.length} skipped: move to bin failed (${e.message || e})`);
         ids.forEach((id) => skipped.push(id));
-        report();
-        continue;
+        return;
       }
       // The response names what it binned, e.g. [[mediaKey, mediaKey]]. Only a
       // photo named back is counted, and only those leave the store.
@@ -184,6 +185,14 @@ window.GPDD = window.GPDD || {};
         await store.remove(done);
         done.forEach((id) => { deleted.push(id); usedKeys.set(id, keys.get(id)); });
       }
+    };
+
+    while (next < targets.length) {
+      if (shouldStop()) { stoppedEarly = true; break; }
+      const chunk = targets.slice(next, next + TRASH_BATCH);
+      next += chunk.length;
+      const keys = await resolveKeys(chunk);
+      if (keys.size) await binChunk(keys);
       report();
     }
 
@@ -223,5 +232,5 @@ window.GPDD = window.GPDD || {};
     return back;
   }
 
-  window.GPDD.api = { run, restore, batch, dedupKeys, binned, RPC_TRASH };
+  window.GPDD.api = { run, restore, batch };
 })();

@@ -49,7 +49,6 @@ const CSS = css`
     --s2: 8px;
     --s3: 12px;
     --s4: 16px;
-    --s5: 24px;
     --r1: 8px;
     --r2: 12px;
     --r3: 16px;
@@ -243,13 +242,6 @@ const CSS = css`
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  input[type='checkbox'] {
-    width: 15px;
-    height: 15px;
-    margin: 0;
-    accent-color: var(--accent);
-    cursor: pointer;
-  }
 
   /* =============================================================== buttons == */
   .row {
@@ -396,9 +388,7 @@ const CSS = css`
     font-size: var(--t2);
   }
 
-  /* Shown in place of the panel while a scan runs. The panel used to be hidden
-   and restored around every screenshot, which read as a flicker once a second;
-   this stays put, and its rect is excluded from hashing instead. */
+  /* Shown in place of the panel while a scan runs. */
   .scanbar {
     display: none;
     position: fixed;

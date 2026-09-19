@@ -69,11 +69,13 @@ window.GPDD.ui = window.GPDD.ui || {};
 
   // Sits to the left of the panel, vertically centred on the hovered tile and
   // clamped to the viewport. A short delay keeps it from flashing while the
-  // pointer sweeps across a row.
-  function attachPreview(ui, img, item) {
+  // pointer sweeps across a row. One pair of listeners on the results host
+  // covers every tile, so a re-render allocates nothing; itemOf(img) resolves
+  // the hovered thumbnail to its item.
+  function wire(ui, host, itemOf) {
     // Position has to be recomputed once the image lands: before it loads the
     // box has no real height, so a tall photo would be placed off the bottom.
-    const place = () => {
+    const place = (img) => {
       const panel = ui.panel.getBoundingClientRect();
       const r = img.getBoundingClientRect();
       const w = ui.preview.offsetWidth;
@@ -82,7 +84,7 @@ window.GPDD.ui = window.GPDD.ui || {};
       ui.preview.style.top = Math.max(12, Math.min(window.innerHeight - h - 12, r.top + r.height / 2 - h / 2)) + 'px';
     };
 
-    const show = () => {
+    const show = (img, item) => {
       const panel = ui.panel.getBoundingClientRect();
       const maxW = Math.min(620, Math.max(220, panel.left - 32));
       const maxH = Math.round(window.innerHeight * 0.8);
@@ -95,8 +97,6 @@ window.GPDD.ui = window.GPDD.ui || {};
       // is always the right photo. Assigning the large src directly instead
       // would leave the PREVIOUS photo on screen until the new one decoded.
       const seq = ++previewSeq;
-      ui.previewImg.onload = null;
-      ui.previewImg.onerror = null;
       ui.previewImg.src = item.thumb || '';
       ui.previewCap.textContent =
         (item.ts ? new Date(item.ts).toLocaleString() : 'date unknown') +
@@ -106,27 +106,34 @@ window.GPDD.ui = window.GPDD.ui || {};
       big.onload = () => {
         if (seq !== previewSeq) return; // pointer has moved on
         ui.previewImg.src = big.src;
-        place();
+        place(img);
       };
       big.src = bigUrl(item.thumb || '');
 
       ui.preview.classList.add('on');
-      place();
+      place(img);
     };
 
-    img.addEventListener('mouseenter', () => {
+    // The thumbnail is a leaf, so over/out on it are its enter/leave.
+    const thumb = (e) => (e.target.closest ? e.target.closest('.tile img') : null);
+    host.addEventListener('mouseover', (e) => {
+      const img = thumb(e);
+      if (!img) return;
+      const item = itemOf(img);
+      if (!item) return;
       clearTimeout(previewTimer);
       // Already open on the previous tile, so swap straight to this one rather
       // than making the pointer wait through the open delay again.
-      previewTimer = setTimeout(show, ui.preview.classList.contains('on') ? 0 : 120);
+      previewTimer = setTimeout(() => show(img, item), ui.preview.classList.contains('on') ? 0 : 120);
     });
     // Lingers half a second on the way out, so sweeping off a tile does not
     // blink the preview away before the next one is under the pointer.
-    img.addEventListener('mouseleave', () => {
+    host.addEventListener('mouseout', (e) => {
+      if (!thumb(e)) return;
       clearTimeout(previewTimer);
       previewTimer = setTimeout(() => ui.preview.classList.remove('on'), 500);
     });
   }
 
-  window.GPDD.ui.preview = { HTML, CSS, bigUrl, attachPreview };
+  window.GPDD.ui.preview = { HTML, CSS, bigUrl, wire };
 })();

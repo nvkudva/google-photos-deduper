@@ -14,14 +14,21 @@ window.GPDD.ui = window.GPDD.ui || {};
   const msOfMi = (mi) => new Date(Math.floor(mi / 12), mi % 12, 1).getTime();
   const fmtMi = (mi) => MON[mi % 12] + ' ' + Math.floor(mi / 12);
 
+  // A popover is a year stepper over a fixed grid of months; drawPop only
+  // flips the disabled/on states, so the markup is static and built once.
+  const POP = /* HTML */ `<div class="nav">
+      <button type="button" data-nav="-1">◀</button><b></b><button type="button" data-nav="1">▶</button>
+    </div>
+    <div class="mg">${MON.map((m, i) => `<button type="button" data-m="${i}">${m}</button>`).join('')}</div>`;
+
   const HTML = /* HTML */ ` <div class="range">
     <div class="top">
       <span class="lbl">Range</span>
       <button class="pill p-new" type="button"></button>
       <span class="dash">&ndash;</span>
       <button class="pill p-old" type="button"></button>
-      <div class="pop pop-new"></div>
-      <div class="pop pop-old"></div>
+      <div class="pop pop-new">${POP}</div>
+      <div class="pop pop-old">${POP}</div>
     </div>
     <div class="scrub cold">
       <div class="spark"></div>
@@ -249,8 +256,6 @@ window.GPDD.ui = window.GPDD.ui || {};
 
   function buildRange(ui, $) {
     const els = {
-      wrap: $('.range'),
-      top: $('.range .top'),
       pNew: $('.p-new'),
       pOld: $('.p-old'),
       popNew: $('.pop-new'),
@@ -290,52 +295,36 @@ window.GPDD.ui = window.GPDD.ui || {};
       const el = which ? els.popOld : els.popNew;
       const val = which ? R.from : R.to;
       const y = viewY[which];
-      const loY = Math.floor(R.lo / 12),
-        hiY = Math.floor(R.hi / 12);
-      el.textContent = '';
-      const nav = document.createElement('div');
-      nav.className = 'nav';
-      const back = document.createElement('button');
-      back.type = 'button';
-      back.textContent = '◀';
-      back.disabled = y <= loY;
-      const label = document.createElement('b');
-      label.textContent = String(y);
-      const fwd = document.createElement('button');
-      fwd.type = 'button';
-      fwd.textContent = '▶';
-      fwd.disabled = y >= hiY;
-      back.onclick = (e) => {
-        e.stopPropagation();
-        viewY[which]--;
-        drawPop(which);
-      };
-      fwd.onclick = (e) => {
-        e.stopPropagation();
-        viewY[which]++;
-        drawPop(which);
-      };
-      nav.append(back, label, fwd);
-      const mg = document.createElement('div');
-      mg.className = 'mg';
-      for (let m = 0; m < 12; m++) {
-        const mi = y * 12 + m;
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = MON[m];
+      el.querySelector('[data-nav="-1"]').disabled = y <= Math.floor(R.lo / 12);
+      el.querySelector('[data-nav="1"]').disabled = y >= Math.floor(R.hi / 12);
+      el.querySelector('.nav b').textContent = String(y);
+      el.querySelectorAll('[data-m]').forEach((b) => {
+        const mi = y * 12 + Number(b.dataset.m);
         b.disabled = mi < R.lo || mi > R.hi;
-        if (mi === val) b.classList.add('on');
-        b.onclick = (e) => {
-          e.stopPropagation();
-          if (which) R.from = mi;
-          else R.to = mi;
-          shut();
-          commit();
-        };
-        mg.append(b);
-      }
-      el.append(nav, mg);
+        b.classList.toggle('on', mi === val);
+      });
     }
+
+    function popClick(which) {
+      return (e) => {
+        e.stopPropagation();
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.nav) {
+          viewY[which] += Number(b.dataset.nav);
+          drawPop(which);
+          return;
+        }
+        if (!b.dataset.m) return;
+        const mi = viewY[which] * 12 + Number(b.dataset.m);
+        if (which) R.from = mi;
+        else R.to = mi;
+        shut();
+        commit();
+      };
+    }
+    els.popNew.onclick = popClick(0);
+    els.popOld.onclick = popClick(1);
 
     function showPop(which) {
       const was = openPop;
@@ -380,6 +369,11 @@ window.GPDD.ui = window.GPDD.ui || {};
       }
     }
 
+    const pill = (el, mi) => {
+      el.textContent = '';
+      el.append(fmtMi(mi), Object.assign(document.createElement('i'), { textContent: '▾' }));
+    };
+
     function draw() {
       if (R.from > R.to) {
         const t = R.from;
@@ -397,10 +391,8 @@ window.GPDD.ui = window.GPDD.ui || {};
       const place = (pc) => 'clamp(0px, calc(' + pc + '% - 5px), calc(100% - 10px))';
       els.hNew.style.left = place(left);
       els.hOld.style.left = place(right);
-      els.pNew.innerHTML = '';
-      els.pNew.append(fmtMi(R.to), Object.assign(document.createElement('i'), { textContent: '▾' }));
-      els.pOld.innerHTML = '';
-      els.pOld.append(fmtMi(R.from), Object.assign(document.createElement('i'), { textContent: '▾' }));
+      pill(els.pNew, R.to);
+      pill(els.pOld, R.from);
       els.all.disabled = isFull();
 
       const months = R.to - R.from + 1;
@@ -458,9 +450,8 @@ window.GPDD.ui = window.GPDD.ui || {};
       R.to = R.hi;
       commit();
     };
-    ui.root.addEventListener('click', (e) => {
-      if (!els.top.contains(e.composedPath()[0])) shut();
-    });
+    // Click is composed, so this sees clicks inside the panel too; the pills
+    // and popovers stop theirs before it gets here.
     document.addEventListener('click', shut);
 
     draw();

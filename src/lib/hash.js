@@ -74,5 +74,5 @@ window.GPDD = window.GPDD || {};
     return hex;
   }
 
-  window.GPDD.hash = { degenerate, popcount, dhashBlob };
+  window.GPDD.hash = { degenerate, dhashBlob };
 })();

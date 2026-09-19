@@ -36,47 +36,33 @@ window.GPDD = window.GPDD || {};
     });
   };
 
-  async function putMany(items) {
+  // Walks every row of the items store, resolving when the cursor runs out.
+  const walk = async (openCursor, visit) => {
     const db = await open();
     return new Promise((res, rej) => {
-      const t = db.transaction(ITEMS, 'readwrite');
-      const os = t.objectStore(ITEMS);
-      items.forEach((i) => os.put(i));
-      t.oncomplete = res;
-      t.onerror = () => rej(t.error);
-    });
-  }
-
-  async function allItems() {
-    const db = await open();
-    return new Promise((res, rej) => {
-      const out = [];
-      const t = db.transaction(ITEMS, 'readonly');
-      const cur = t.objectStore(ITEMS).openCursor();
+      const cur = openCursor(db.transaction(ITEMS, 'readonly').objectStore(ITEMS));
       cur.onsuccess = () => {
         const c = cur.result;
-        if (!c) return res(out);
-        out.push(c.value);
+        if (!c) return res();
+        visit(c);
         c.continue();
       };
       cur.onerror = () => rej(cur.error);
     });
+  };
+
+  const putMany = (items) => tx(ITEMS, 'readwrite', (os) => items.forEach((i) => os.put(i)));
+
+  async function allItems() {
+    const out = [];
+    await walk((os) => os.openCursor(), (c) => out.push(c.value));
+    return out;
   }
 
   async function knownIds() {
-    const db = await open();
-    return new Promise((res, rej) => {
-      const s = new Set();
-      const t = db.transaction(ITEMS, 'readonly');
-      const cur = t.objectStore(ITEMS).openKeyCursor();
-      cur.onsuccess = () => {
-        const c = cur.result;
-        if (!c) return res(s);
-        s.add(c.key);
-        c.continue();
-      };
-      cur.onerror = () => rej(cur.error);
-    });
+    const s = new Set();
+    await walk((os) => os.openKeyCursor(), (c) => s.add(c.key));
+    return s;
   }
 
   const count = () => tx(ITEMS, 'readonly', (os) => os.count());

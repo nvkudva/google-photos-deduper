@@ -56,6 +56,66 @@ window.GPDD = window.GPDD || {};
     return hash.dhashBlob(blob);
   }
 
+  // Rate limiting shows as 429 (or 503) on the thumbnail host. The first one
+  // in a burst halves the number in flight and pauses every worker, doubling
+  // the pause on each further burst up to a minute. A long clean stretch
+  // grows the concurrency back a quarter at a time.
+  function makeThrottle(stats, onProgress) {
+    let allowed = IN_FLIGHT;
+    let pausedUntil = 0;
+    let backoffMs = 5000;
+    let clean = 0;
+    return {
+      get allowed() { return allowed; },
+      get pausedUntil() { return pausedUntil; },
+      throttled(status) {
+        if (Date.now() < pausedUntil) return; // already backing off for this burst
+        allowed = Math.max(MIN_IN_FLIGHT, allowed >> 1);
+        pausedUntil = Date.now() + backoffMs;
+        stats.throttled++;
+        onProgress({ log: `Google answered ${status}: pausing ${backoffMs / 1000}s, then ${allowed} at a time` });
+        backoffMs = Math.min(60000, backoffMs * 2);
+        clean = 0;
+      },
+      succeeded() {
+        if (++clean < 2000 || allowed >= IN_FLIGHT) return;
+        allowed = Math.min(IN_FLIGHT, allowed + (allowed >> 2));
+        backoffMs = 5000;
+        clean = 0;
+      },
+    };
+  }
+
+  // Fetches and hashes the wanted items through a pool of IN_FLIGHT workers,
+  // of which only the throttle's allowed count are active at a time. Returns
+  // the rows that hashed and how many did not.
+  async function hashAll(wanted, throttle, shouldStop, stats) {
+    const rows = [];
+    let failed = 0;
+    let idx = 0;
+    await Promise.all(Array.from({ length: IN_FLIGHT }, async (_, k) => {
+      while (idx < wanted.length && !shouldStop()) {
+        if (k >= throttle.allowed) { await sleep(1000); continue; }
+        const wait = throttle.pausedUntil - Date.now();
+        if (wait > 0) { await sleep(wait); continue; }
+        const it = wanted[idx++];
+        let h = null;
+        let ok = false;
+        for (let attempt = 0, limited = 0; attempt < 2 && limited < 8 && !ok; ) {
+          try { h = await fetchHash(it.base); ok = true; throttle.succeeded(); }
+          catch (e) {
+            if (e.status === 429 || e.status === 503) { limited++; throttle.throttled(e.status); await sleep(Math.max(0, throttle.pausedUntil - Date.now())); }
+            else if (++attempt < 2) await sleep(500);
+          }
+        }
+        if (!ok) { failed++; stats.failed++; continue; }
+        stats.fetched++;
+        rows.push({ id: it.id, kind: it.kind, ts: it.ts, day: it.day, thumb: it.base + THUMB_SIZE, hash: h });
+      }
+    }));
+    return { rows, failed };
+  }
+
   async function scan({
     maxItems = Infinity,
     onProgress = () => {},
@@ -81,29 +141,7 @@ window.GPDD = window.GPDD || {};
       onProgress({ scanned: known.size, added, skipped, pct });
     };
 
-    // Rate limiting shows as 429 (or 503) on the thumbnail host. The first one
-    // in a burst halves the number in flight and pauses every worker, doubling
-    // the pause on each further burst up to a minute. A long clean stretch
-    // grows the concurrency back a quarter at a time.
-    let allowed = IN_FLIGHT;
-    let pausedUntil = 0;
-    let backoffMs = 5000;
-    let clean = 0;
-    const throttled = (status) => {
-      if (Date.now() < pausedUntil) return; // already backing off for this burst
-      allowed = Math.max(MIN_IN_FLIGHT, allowed >> 1);
-      pausedUntil = Date.now() + backoffMs;
-      stats.throttled++;
-      onProgress({ log: `Google answered ${status}: pausing ${backoffMs / 1000}s, then ${allowed} at a time` });
-      backoffMs = Math.min(60000, backoffMs * 2);
-      clean = 0;
-    };
-    const succeeded = () => {
-      if (++clean < 2000 || allowed >= IN_FLIGHT) return;
-      allowed = Math.min(IN_FLIGHT, allowed + (allowed >> 2));
-      backoffMs = 5000;
-      clean = 0;
-    };
+    const throttle = makeThrottle(stats, onProgress);
 
     // The next listing request is in flight while this page's thumbnails are
     // fetched, so the ~1s a listing takes is not paid per page.
@@ -120,30 +158,10 @@ window.GPDD = window.GPDD || {};
         !known.has(it.id) && (fromMs == null || it.ts == null || it.ts >= fromMs) && (toMs == null || it.ts == null || it.ts < toMs)
       ).slice(0, Math.max(0, maxItems - added));
 
-      const rows = [];
-      let idx = 0;
       const t0 = performance.now();
-      await Promise.all(Array.from({ length: IN_FLIGHT }, async (_, k) => {
-        while (idx < wanted.length && !shouldStop()) {
-          if (k >= allowed) { await sleep(1000); continue; }
-          const wait = pausedUntil - Date.now();
-          if (wait > 0) { await sleep(wait); continue; }
-          const it = wanted[idx++];
-          let h = null;
-          let ok = false;
-          for (let attempt = 0, limited = 0; attempt < 2 && limited < 8 && !ok; ) {
-            try { h = await fetchHash(it.base); ok = true; succeeded(); }
-            catch (e) {
-              if (e.status === 429 || e.status === 503) { limited++; throttled(e.status); await sleep(Math.max(0, pausedUntil - Date.now())); }
-              else if (++attempt < 2) await sleep(500);
-            }
-          }
-          if (!ok) { skipped++; stats.failed++; continue; }
-          stats.fetched++;
-          rows.push({ id: it.id, kind: it.kind, ts: it.ts, day: it.day, thumb: it.base + THUMB_SIZE, hash: h });
-        }
-      }));
+      const { rows, failed } = await hashAll(wanted, throttle, shouldStop, stats);
       stats.hashMs += performance.now() - t0;
+      skipped += failed;
 
       if (rows.length) {
         await store.putMany(rows);

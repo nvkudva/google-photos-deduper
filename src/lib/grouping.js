@@ -9,8 +9,6 @@ window.GPDD = window.GPDD || {};
 
   const maxDistance = (similarityPct) => Math.round(((100 - similarityPct) / 100) * 64);
 
-  const degenerate = (hex) => hash.degenerate(hex);
-
   // One band per dHash row: eight bands of eight bits. Two hashes within seven
   // bits of each other must agree on at least one whole row, so at the default
   // 92% (five bits) the banding pass is exhaustive, not approximate. Measured
@@ -39,7 +37,7 @@ window.GPDD = window.GPDD || {};
     const pool = items.filter(
       // Videos are always out. Their hash comes from the poster frame, so a
       // match says one still looked alike - too little to bin a clip on.
-      (i) => i.hash && !degenerate(i.hash) && i.kind !== 'Video'
+      (i) => i.hash && !hash.degenerate(i.hash) && i.kind !== 'Video'
     );
     const maxD = maxDistance(similarity);
     const n = pool.length;
@@ -180,5 +178,5 @@ window.GPDD = window.GPDD || {};
     return { groups: out, capped };
   }
 
-  window.GPDD.grouping = { group, maxDistance };
+  window.GPDD.grouping = { group };
 })();

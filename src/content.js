@@ -41,12 +41,17 @@ window.GPDD = window.GPDD || {};
     );
   };
 
-  function refresh() {
-    results.renderGroups(ui, state.groups, state, refresh);
+  function syncDelete() {
     const n = state.toDelete.size;
     ui.del.disabled = !n || state.running;
     ui.dellbl.textContent = n ? `Move ${n} to bin` : 'Move selected to bin';
   }
+  function refresh() {
+    results.renderGroups(ui, state.groups, state, refresh);
+    syncDelete();
+  }
+  // Keep/toggle on a card redraws that card itself; only the button follows.
+  ui.onSelect = syncDelete;
 
   // A skipped group keeps its photos in the store and in the results - it is
   // only taken out of the selection, so nothing is lost by skipping it.
@@ -102,12 +107,26 @@ window.GPDD = window.GPDD || {};
     refresh();
   }
 
-  ui.sim.onchange = () => { ui.simv.textContent = ui.sim.value + '%'; if (state.groups.length || !state.running) regroup(); };
+  ui.sim.onchange = () => { if (state.groups.length || !state.running) regroup(); };
+
+  // Every long run takes the same lock: nothing else may start while it holds
+  // it, and the buttons follow. Undo cannot be stopped part way, so it leaves
+  // the Stop button alone.
+  function beginRun({ stoppable = true } = {}) {
+    state.running = true;
+    if (stoppable) { state.stop = false; ui.stop.disabled = false; }
+    ui.scan.disabled = true;
+    refresh();
+    ui.setWarn('');
+  }
+  function endRun() {
+    state.running = false;
+    ui.scan.disabled = false;
+    ui.stop.disabled = true;
+  }
 
   ui.scan.onclick = async () => {
-    state.running = true; state.stop = false;
-    ui.scan.disabled = true; ui.stop.disabled = false; refresh();
-    ui.setWarn('');
+    beginRun();
     ui.setScanning(true);
     const range = ui.range.get();
     ui.setStatus(
@@ -135,9 +154,9 @@ window.GPDD = window.GPDD || {};
       ui.setWarn(String(e.message || e));
       ui.setStatus('Scan stopped.');
     } finally {
-      state.running = false;
+      endRun();
       ui.setScanning(false);
-      ui.scan.disabled = false; ui.stop.disabled = true; refresh();
+      refresh();
     }
   };
 
@@ -160,10 +179,8 @@ window.GPDD = window.GPDD || {};
     const want = new Set(targetIds);
     const rows = new Map();
     state.groups.forEach((g) => g.items.forEach((it) => { if (want.has(it.id)) rows.set(it.id, it); }));
-    state.running = true; state.stop = false;
     state.runningIds = new Set(targetIds);
-    ui.scan.disabled = true; ui.stop.disabled = false; refresh();
-    ui.setWarn('');
+    beginRun();
     ui.setBusy(true);
     ui.setStatus(`Deleting ${targetIds.length}…`);
     let r = null;
@@ -185,51 +202,55 @@ window.GPDD = window.GPDD || {};
       failed = String(e.message || e);
       ui.setWarn(failed);
     } finally {
-      state.running = false;
+      endRun();
       state.runningIds = new Set();
       ui.setBusy(false);
-      ui.scan.disabled = false;
-      ui.stop.disabled = true;
-      // Every confirmed deletion is already out of the store, so the cards have
-      // to be rebuilt even when the run ended badly or was stopped part way -
-      // otherwise they go on offering photos that are now in the bin.
-      try {
-        await regroup();
-      } catch (e) {
-        ui.setWarn(`The results could not be rebuilt: ${e.message || e}`);
-      }
       // Anything the run did not finish is re-selected, so clicking the button
       // again picks up exactly those rather than starting from the top. A photo
       // that was skipped is still in the store, so it is still in the rebuilt
       // groups.
       const pending = r ? [...r.skipped, ...r.remaining] : [];
-      // A card-level run must not narrow the selection down to that one card,
-      // so it keeps the selection regroup() just rebuilt and only restores the
-      // pages that were on screen before.
-      if (partial) {
-        if (shownBefore > state.shown) {
-          const from = state.shown;
-          state.shown = Math.min(state.groups.length, shownBefore);
-          results.addSelection(state.groups, state, from, state.shown);
-        }
-        refresh();
-      } else if (pending.length) {
-        reselect(pending);
-      }
-
+      await settleSelection(pending, { partial, shownBefore });
       // Only a run that binned something can be undone, and only until the
       // next one replaces it.
       state.lastDelete = r && r.deleted ? { keys: r.deletedKeys, rows } : null;
-
-      // regroup() rewrites the status line, so the outcome goes on last.
-      ui.setStatus(
-        (failed ? `Delete stopped: ${failed}` : `Moved ${r.deleted} to the bin — recoverable there.`) +
-          (r && r.alreadyBinned ? ` ${r.alreadyBinned} were already there.` : '') +
-          (pending.length ? ` ${pending.length} left${partial ? ' in that group.' : ' — click again to carry on.'}` : ''),
-        { keepUndo: true }
-      );
-      ui.setUndo(state.lastDelete ? state.lastDelete.keys.size : 0);
+      reportOutcome({ r, failed, pending, partial });
     }
+  }
+
+  // Every confirmed deletion is already out of the store, so the cards have
+  // to be rebuilt even when the run ended badly or was stopped part way -
+  // otherwise they go on offering photos that are now in the bin.
+  async function settleSelection(pending, { partial, shownBefore }) {
+    try {
+      await regroup();
+    } catch (e) {
+      ui.setWarn(`The results could not be rebuilt: ${e.message || e}`);
+    }
+    // A card-level run must not narrow the selection down to that one card,
+    // so it keeps the selection regroup() just rebuilt and only restores the
+    // pages that were on screen before.
+    if (partial) {
+      if (shownBefore > state.shown) {
+        const from = state.shown;
+        state.shown = Math.min(state.groups.length, shownBefore);
+        results.addSelection(state.groups, state, from, state.shown);
+      }
+      refresh();
+    } else if (pending.length) {
+      reselect(pending);
+    }
+  }
+
+  // regroup() rewrites the status line, so the outcome goes on last.
+  function reportOutcome({ r, failed, pending, partial }) {
+    ui.setStatus(
+      (failed ? `Delete stopped: ${failed}` : `Moved ${r.deleted} to the bin — recoverable there.`) +
+        (r && r.alreadyBinned ? ` ${r.alreadyBinned} were already there.` : '') +
+        (pending.length ? ` ${pending.length} left${partial ? ' in that group.' : ' — click again to carry on.'}` : ''),
+      { keepUndo: true }
+    );
+    ui.setUndo(state.lastDelete ? state.lastDelete.keys.size : 0);
   }
 
   ui.undo.onclick = async () => {
@@ -237,12 +258,9 @@ window.GPDD = window.GPDD || {};
     if (!last || state.running) return;
     // Same lock a delete takes: putting rows back and regrouping must not race
     // a scan or another bin run started while it is in flight.
-    state.running = true;
-    ui.scan.disabled = true;
     ui.undo.disabled = true;
-    refresh();
+    beginRun({ stoppable: false });
     ui.setBusy(true);
-    ui.setWarn('');
     ui.setStatus(`Putting ${last.keys.size} back…`, { keepUndo: true });
     let back;
     try {
@@ -275,8 +293,7 @@ window.GPDD = window.GPDD || {};
     } catch (e) {
       ui.setWarn(`The photos are back in the library, but the results could not be rebuilt: ${e.message || e}`);
     } finally {
-      state.running = false;
-      ui.scan.disabled = false;
+      endRun();
       ui.setBusy(false);
       refresh();
     }

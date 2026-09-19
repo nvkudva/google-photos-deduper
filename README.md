@@ -72,24 +72,22 @@ Unpacked only. There is no store listing to install from.
 
 ## First run — do this before pointing it at anything large
 
-Verified end to end on a live album: scan, dry run, and a real delete. Still
-worth walking through in this order on anything you have not scanned before:
+Verified end to end on a live album: scan and a real delete. Still worth
+walking through in this order on anything you have not scanned before:
 
 1. Open a small album (not the main library), set **Scan at most** to `50`, Scan.
-2. Check the panel reports a sane number of groups and does not abort with
-   "every tile hashed identically". Spot-check that the photos inside a group
-   really do look alike.
-3. **Dry run** — confirm the count it reports matches what you selected.
-4. Let it do one live delete on a single group, then check the Bin.
+2. Check the panel reports a sane number of groups. Spot-check that the photos
+   inside a group really do look alike.
+3. Let it do one live delete on a single group, then check the Bin.
 
 Only then raise the cap.
 
 ## Use
 
-1. **Scan** — walks the grid, hashing each thumbnail (dHash, 64-bit) and writing
-   it to IndexedDB as it goes. Start with the default cap of 2000 rather than the
-   whole library. **The tab has to stay visible**: Google Photos stops rendering
-   tiles when it is hidden, and the scan will report that it has paused.
+1. **Scan** — lists the library through the page's own timeline RPC, fetches
+   each thumbnail at 32px and hashes it (dHash, 64-bit), writing to IndexedDB as
+   it goes. Start with the default cap of 2000 rather than the whole library.
+   The tab does not need to stay visible.
 2. Adjust **Similarity** to regroup — 100% is byte-identical thumbnails, lower
    values catch recompressions and burst shots.
 3. Review the groups. Green is the keeper (oldest by default). Click a photo to
@@ -103,8 +101,7 @@ Only then raise the cap.
 
    The minimise button collapses the panel to its title bar.
 
-4. **Dry run** first — it reports what it would delete and touches nothing.
-5. **Move selected to bin** — click it twice (the button arms itself for five
+4. **Move selected to bin** — click it twice (the button arms itself for fifteen
    seconds rather than opening a dialog; a content script's native `confirm()`
    blocks the whole renderer). It bins 250 photos per request and only counts a
    photo once Google's reply names it. Items land in the Google Photos bin and
@@ -154,19 +151,12 @@ whenever anything under `src/` or `manifest.json` changes.
 
 ## Limits
 
-- Hashes the on-screen thumbnail (~165×220 in a JPEG screenshot), not the
-  original file, so it finds visual duplicates rather than proving byte-identity.
-- A tile is only hashed while it is wholly inside the viewport, so the scan
-  steps by 60% of a screen to give every row a fully-visible moment.
-- Another extension's floating panel overlapping the grid will corrupt the hashes
-  of the tiles underneath it. Close other Google Photos extensions before scanning.
-- The first batch of each scan is sanity-checked: if the hashes come back
-  identical the scan aborts, so a blank capture surfaces as an error rather than
-  as a library full of bogus "duplicates".
+- Hashes a 32px thumbnail, not the original file, so it finds visual duplicates
+  rather than proving byte-identity.
 - Throughput is measured, and recorded on each run under the `lastScan` meta
-  row: 29.95 photos/sec over a 2,025-photo scan, 18.2 photos per scroll step,
-  58% of the time in screen capture and 42% waiting for thumbnails to paint.
-  That puts 200,000 photos at roughly 1.9 hours with the tab in the foreground.
+  row. The server takes ~250–600ms per thumbnail whatever the size, so the rate
+  is set by how many requests are in flight: ~100 photos/s at 64, ~150/s at
+  128, and worse again at 256. 10,000 photos ran in 96s at 64.
 - Memory is not the limit: rows are ~309 bytes each (59MB at 200k), reading the
   whole store takes about a second at that size, and the set of known ids is
   24MB. Grouping 200k photos is ~800M hash comparisons and takes ~4.8s, yielded
