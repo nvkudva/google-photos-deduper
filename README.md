@@ -39,9 +39,6 @@ the photos.google.com UI. Everything below was verified against the live site.
 | Thumbnail        | `background-image` on a `[data-latest-bg]` descendant, served from `photos.fife.usercontent.google.com`                                                                                                                                                                              |
 | Listing          | the page's own timeline RPC (`lcxiM`) returns 500 items per request, newest first, with media key, dedup key, capture time, dimensions and a thumbnail base URL; a timestamp argument starts the listing at that date                                                                |
 | Thumbnail pixels | readable by a **credentialed** fetch from the content script (`credentials: "include"`, ~1.2KB at 32px). `crossOrigin="anonymous"` gets a transparent placeholder and a cookieless service-worker fetch gets a sign-in page, which is what the earlier "not readable" verdict tested |
-| Grid             | virtualised — ~130 tiles live, ~108 dropped per 6000px of scroll                                                                                                                                                                                                                     |
-| Scroll container | a `c-wiz` in the main library, a plain `div[jsname]` in album views — found by walking up from a tile, not by tag                                                                                                                                                                    |
-| Selection        | per-tile `[role="checkbox"]`; date headers use the same role, labelled `"Select all …"`                                                                                                                                                                                              |
 | Deletion         | the page's own `batchexecute` RPC (`XwAOJf`), which takes each photo's dedup key rather than the `/photo/<id>` media key; the media-info RPC (`VrseUb`) maps one to the other                                                                                                        |
 | Input            | **scripted clicks are ignored** — `.click()` and full synthetic pointer/mouse sequences both fail, including on the always-visible "Clear selection" button — which is why deletion talks to the RPC instead of the page                                                             |
 
@@ -75,7 +72,7 @@ Unpacked only. There is no store listing to install from.
 Verified end to end on a live album: scan and a real delete. Still worth
 walking through in this order on anything you have not scanned before:
 
-1. Open a small album (not the main library), set **Scan at most** to `50`, Scan.
+1. Narrow the **Range** to a month or two, set **Scan at most** to `50`, Scan.
 2. Check the panel reports a sane number of groups. Spot-check that the photos
    inside a group really do look alike.
 3. Let it do one live delete on a single group, then check the Bin.
@@ -84,10 +81,12 @@ Only then raise the cap.
 
 ## Use
 
-1. **Scan** — lists the library through the page's own timeline RPC, fetches
-   each thumbnail at 32px and hashes it (dHash, 64-bit), writing to IndexedDB as
-   it goes. Start with the default cap of 2000 rather than the whole library.
-   The tab does not need to stay visible.
+1. **Scan** — lists the library through the page's own timeline RPC, newest
+   first within the **Range**, fetches each thumbnail at 32px and hashes it
+   (dHash, 64-bit), writing to IndexedDB as it goes. Photos already hashed are
+   skipped, so a second scan only costs the new ones. Start with the default
+   cap of 2000 rather than the whole library. The tab does not need to stay
+   visible.
 2. Adjust **Similarity** to regroup — 100% is byte-identical thumbnails, lower
    values catch recompressions and burst shots.
 3. Review the groups. Green is the keeper (oldest by default). Click a photo to
@@ -96,7 +95,7 @@ Only then raise the cap.
    **Hover a thumbnail** to see the photo large (up to 1200px) with its capture
    time, so you can tell two near-identical shots apart before deleting one. The
    preview works because the thumbnail URL's size segment is rewritable —
-   `=w144-h193-no` becomes `=w1200-h1200-no` and returns a genuinely larger
+   `=w192-h192-no` becomes `=w1200-h1200-no` and returns a genuinely larger
    image rather than an upscale.
 
    The minimise button collapses the panel to its title bar.
@@ -108,11 +107,11 @@ Only then raise the cap.
    stay recoverable there for as long as Google keeps them. Anything not
    confirmed stays selected, so clicking again carries on.
 
-**Scope** is whatever grid you are on. The main library, an album, the
-`Screenshots and recordings` view, or a search result all work — open the view
-first, then scan. On a ~100k-photo library a full pass is an hours-long session,
-which is why scoping to an album or raising the cap gradually is the better way
-in.
+**Scope** is the whole library, whichever view is open: the listing RPC walks
+the timeline regardless of the grid, and archive is left out. The **Range**
+slider and **Scan at most** are the two ways to narrow a pass; the sparkline
+under the slider shows what has been scanned already. A first full pass on a
+~100k-photo library is around a quarter of an hour.
 
 ## Layout
 
@@ -128,8 +127,11 @@ and each registers itself on `window.GPDD`.
   `results` (group cards, paging, selection), `panel` (template, `mount()`,
   status setters), `nav` (the Deduper entry in Google Photos' sidebar). Each of `range`, `preview` and `results` carries its own
   markup and CSS next to its code; `panel` concatenates the four stylesheets.
-- `src/content.js` — wiring: state, the scan flow and the delete flow.
+- `src/content.js` — wiring: state, the scan, delete and undo flows, each
+  bracketed by the same run lock.
 - `src/background.js` — extension reload and the toolbar button only.
+- `src/dev-reload.js`, `src/dev-shot.js` — development only, dropped from the
+  packaged zip by `tools/package.sh`.
 
 ## Reloading during development
 
@@ -167,7 +169,7 @@ whenever anything under `src/` or `manifest.json` changes.
 - Filename-based matching would need the info panel opened per photo — one page
   load each. Not viable at library scale, so it is not implemented.
 - Stored thumbnail URLs are a stable per-photo token plus a size suffix
-  (`.../pw/AP1Gcz...=w165-h220-n`); only the suffix changes between sessions, so
+  (`.../pw/AP1Gcz...=w192-h192-no`); only the suffix changes between sessions, so
   they do not rot the way a signed URL would. Results still prefer the live
   grid's URL for any photo currently rendered, and a thumbnail that fails to
   load shows an empty frame and a count rather than a broken-image glyph.
