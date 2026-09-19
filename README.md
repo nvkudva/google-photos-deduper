@@ -11,19 +11,35 @@ finds visually duplicate photos, and moves the ones you choose to the bin.
 - **Tunable** — one similarity slider, 70% to 100%. Set it to 100% to match only
   exact copies, or ease it down to catch crops, re-saves and re-compressions of
   the same shot.
-- **Recoverable** — Deleting moves photos to the Google Photos Trashbin where they sit for a month, and Undo puts the last run straight back.
+- **Recoverable** — Deleting moves photos to the Google Photos bin, where they stay for 60
+  days, and Undo puts the last run straight back.
 
 Independent: not made by, endorsed by, or affiliated with Google. Named "Google
 Photos DeDuper" until the store listing was prepared — the store forbids a name
 that implies affiliation. Listing copy is in [STORE.md](STORE.md); build the
 upload zip with `tools/package.sh`.
 
-![The panel open over a Google Photos library, showing scan progress and duplicate groups](store/screenshots/01-review.png)
+![The panel docked over a Google Photos library, showing the range slider, the similarity slider and the first duplicate groups](store/screenshots/01-review.png)
 
-_The panel docked over the library: range, similarity, and each duplicate group
-with its keeper ringed green. Photos are blurred in every screenshot here — a
-real library is somebody's family, so `src/dev-shot.js` blurs the page before
-anything is captured._
+_The panel docked over the library: date range, similarity, and the scan summary._
+
+![Duplicate groups, each with its keeper ringed green and the others marked for the bin](store/screenshots/02-groups.png)
+
+_Each group is one set of duplicates. The green ring is the keeper; every other
+photo in the group is marked for the bin, and Skip leaves the whole group alone._
+
+![A thumbnail hovered, showing the photo large with its capture time](store/screenshots/03-preview.png)
+
+_Hovering a thumbnail shows it large with its capture time, so two near-identical
+shots can be told apart before either is deleted._
+
+![The bin button armed, with the status line spelling out what the next click does](store/screenshots/04-confirm.png)
+
+_Nothing is deleted on one click: the button arms itself and the status line
+spells out exactly what the next click will do._
+
+_Photos are blurred in every screenshot here — a real library is somebody's
+family, so `src/dev-shot.js` blurs the page before anything is captured._
 
 ## Why it works this way
 
@@ -60,12 +76,12 @@ result is a skipped photo, never a wrongly binned one.
 
 ## Install
 
-Unpacked only. There is no store listing to install from.
+Unpacked, until the Chrome Web Store listing is live.
 
 1. `chrome://extensions` → enable **Developer mode**
 2. **Load unpacked** → select this folder
-3. Open <https://photos.google.com> and click the extension's toolbar icon to
-   show or hide the panel
+3. Open <https://photos.google.com>. Show or hide the panel from **Deduper** in
+   the sidebar, below Bin, or from the extension's toolbar icon.
 
 ## First run — do this before pointing it at anything large
 
@@ -98,7 +114,9 @@ Only then raise the cap.
    `=w192-h192-no` becomes `=w1200-h1200-no` and returns a genuinely larger
    image rather than an upscale.
 
-   The minimise button collapses the panel to its title bar.
+   The minimise button collapses the panel to its title bar. The close button
+   next to it hides the panel and keeps it hidden across reloads — a note by the
+   sidebar says so — until **Deduper** in the sidebar opens it again.
 
 4. **Move selected to bin** — click it twice (the button arms itself for fifteen
    seconds rather than opening a dialog; a content script's native `confirm()`
@@ -120,7 +138,8 @@ and each registers itself on `window.GPDD`.
 
 - `src/lib/` — no DOM: `store` (IndexedDB), `hash` (dHash), `grouping`,
   `api` (batchexecute calls: bin, restore, media info), `scanner` (listing plus
-  thumbnail hashing), `selectors` (the few Google Photos DOM facts still used).
+  thumbnail hashing). Nothing reads the photo grid: every fact the extension
+  needs comes from the same RPCs the page itself calls.
 - `src/ui/` — the panel, one component per file under `window.GPDD.ui`:
   `styles` (design tokens and the shared chrome, controls and buttons) and
   `icons` (inline SVG), `range` (month slider), `preview` (the hover preview),
@@ -170,16 +189,12 @@ whenever anything under `src/` or `manifest.json` changes.
   load each. Not viable at library scale, so it is not implemented.
 - Stored thumbnail URLs are a stable per-photo token plus a size suffix
   (`.../pw/AP1Gcz...=w192-h192-no`); only the suffix changes between sessions, so
-  they do not rot the way a signed URL would. Results still prefer the live
-  grid's URL for any photo currently rendered, and a thumbnail that fails to
-  load shows an empty frame and a count rather than a broken-image glyph.
+  they do not rot the way a signed URL would. A thumbnail that fails to load
+  shows an empty frame and a count rather than a broken-image glyph.
 - Videos are always excluded. A video's hash can only come from its poster
   frame - the still Google shows in the grid - so a match means one frame
   looked alike, which is not enough to bin a clip on. Measured on a real
   library: 135 videos produced 0 exact and 1 near match.
-- Selectors are all in `src/lib/selectors.js` with a self-check that surfaces
-  "Google Photos looks different" in the panel instead of silently finding
-  nothing.
 
 ## Credits
 

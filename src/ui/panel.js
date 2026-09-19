@@ -6,6 +6,8 @@ window.GPDD.ui = window.GPDD.ui || {};
 (() => {
   const { CSS, ICON, range, preview, results } = window.GPDD.ui;
 
+  const HIDDEN = 'gpdd-hidden';
+
   const HTML = /* HTML */ `
     <div class="panel" data-ref="panel">
       <div class="hd"><b>Photo DeDuper</b><button class="min" data-ref="min" title="Minimise"></button><button class="close" data-ref="close" title="Close"></button></div>
@@ -60,6 +62,11 @@ window.GPDD.ui = window.GPDD.ui || {};
   function mount() {
     const host = document.createElement('div');
     host.id = 'gpdd-host';
+    // Closing the panel is meant to stick: it stays shut across reloads until
+    // the sidebar entry opens it again.
+    try {
+      if (localStorage.getItem(HIDDEN) === '1') host.style.display = 'none';
+    } catch {}
     const root = host.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     // Tokens and shared parts first, then each module's own rules, so a
@@ -134,6 +141,9 @@ window.GPDD.ui = window.GPDD.ui || {};
     // sidebar entry listens so it can mark itself selected while the panel is up.
     ui.toggle = (on = host.style.display === 'none') => {
       host.style.display = on ? '' : 'none';
+      try {
+        localStorage.setItem(HIDDEN, on ? '0' : '1');
+      } catch {}
       if (ui.onVisibility) ui.onVisibility(on);
     };
     return ui;

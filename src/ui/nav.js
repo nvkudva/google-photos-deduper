@@ -48,6 +48,46 @@ window.GPDD.ui = window.GPDD.ui || {};
     return a;
   }
 
+  // Closing the panel leaves nothing on screen to say it can come back, so a
+  // note points at the entry for a few seconds. In its own shadow root, like
+  // the panel, so the page cannot style it.
+  let note = null;
+  function hint(entry) {
+    if (!note) {
+      note = document.createElement('div');
+      const root = note.attachShadow({ mode: 'open' });
+      root.innerHTML = /* HTML */ `
+        <style>
+          .n {
+            position: fixed;
+            z-index: 2147483647;
+            max-width: 240px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #303134;
+            color: #e8eaed;
+            font: 13px/1.4 Roboto, Arial, sans-serif;
+            box-shadow: 0 4px 16px #0009;
+            opacity: 0;
+            transition: opacity 0.2s;
+          }
+          .n.on {
+            opacity: 1;
+          }
+        </style>
+        <div class="n">Photo DeDuper is closed. Open it again from <b>Deduper</b> in the sidebar.</div>
+      `;
+      document.documentElement.append(note);
+    }
+    const n = note.shadowRoot.querySelector('.n');
+    const r = entry.getBoundingClientRect();
+    n.style.left = `${Math.round(r.right + 12)}px`;
+    n.style.top = `${Math.round(r.top)}px`;
+    n.classList.add('on');
+    clearTimeout(hint.t);
+    hint.t = setTimeout(() => n.classList.remove('on'), 6000);
+  }
+
   function mount(ui) {
     let entry = null;
     const place = () => {
@@ -64,8 +104,11 @@ window.GPDD.ui = window.GPDD.ui || {};
         wrap.appendChild(entry);
         storage.before(wrap);
       } else bin.after(entry);
-      ui.onVisibility = (on) => entry.setAttribute('aria-pressed', String(on));
-      ui.onVisibility(ui.host.style.display !== 'none');
+      ui.onVisibility = (on) => {
+        entry.setAttribute('aria-pressed', String(on));
+        if (!on) hint(entry);
+      };
+      entry.setAttribute('aria-pressed', String(ui.host.style.display !== 'none'));
     };
     place();
     // Google rebuilds the sidebar on navigation, which drops the entry. The

@@ -25,7 +25,6 @@
       ],
       "run_at": "document_idle",
       "js": [
-        "src/lib/selectors.js",
         "src/lib/store.js",
         "src/lib/hash.js",
         "src/lib/api.js",

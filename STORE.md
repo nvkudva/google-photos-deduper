@@ -42,8 +42,10 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 
 | File | Shows |
 | --- | --- |
-| `01-review.png` | The panel over the grid, result cards with their Skip and bin buttons |
-| `03-confirm.png` | The confirm step, with the status line spelling out what the next click does |
+| `01-review.png` | The panel docked over the library: date range, similarity, and the scan summary |
+| `02-groups.png` | Duplicate groups, each with its keeper ringed green and the others marked for the bin |
+| `03-preview.png` | A hovered thumbnail shown large with its capture time |
+| `04-confirm.png` | The bin button armed, with the status line spelling out what the next click does |
 
 They were taken against a real library, so every photo is blurred in CSS before
 capture — a listing screenshot is public. `src/dev-shot.js` does the blurring;
@@ -68,8 +70,8 @@ The helper is development-only and `tools/package.sh` keeps it out of the zip.
 
 | Requested | Justification |
 | --- | --- |
-| `host_permissions: https://photos.google.com/*` | The extension only works on this one site. It reads the photo grid to fingerprint thumbnails, and calls the same endpoints the page itself uses to move the selected photos to the bin. |
-| Content script on `https://photos.google.com/*` | The review panel is drawn into the page, and the grid can only be read from inside it. |
+| `host_permissions: https://photos.google.com/*` | The extension only works on this one site. It fetches each photo's own thumbnail to fingerprint it, and calls the same endpoints the page itself uses to list the library and to move the selected photos to the bin. |
+| Content script on `https://photos.google.com/*` | The review panel is drawn into the page, and those endpoints only answer from inside it, with the signed-in session the page already holds. |
 
 No other permissions are requested. Fingerprints are stored in IndexedDB, which
 needs no permission, and there is no remote code: every script ships in the

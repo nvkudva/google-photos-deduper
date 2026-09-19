@@ -1,7 +1,7 @@
 window.GPDD = window.GPDD || {};
 
 (() => {
-  const { sel, store, scanner, grouping, api } = window.GPDD;
+  const { store, scanner, grouping, api } = window.GPDD;
   const { mount, results, nav } = window.GPDD.ui;
   if (window.__gpddBooted) return;
   window.__gpddBooted = true;
@@ -17,27 +17,14 @@ window.GPDD = window.GPDD || {};
     if (msg && msg.type === 'togglePanel') ui.toggle();
   });
 
-  // The content script runs before the grid has rendered, so the check waits for
-  // tiles to appear rather than reporting an empty page as a broken one.
   refreshHistogram();
-
-  (async () => {
-    for (let i = 0; i < 30; i++) {
-      if (sel.liveTiles().length) break;
-      await new Promise((r) => setTimeout(r, 500));
-    }
-    const problems = sel.selfCheck();
-    if (problems.length) {
-      ui.setWarn('Google Photos looks different than this extension expects: ' + problems.join('; '));
-    }
-  })();
 
   // Reported once per render rather than per image, so a handful of dead
   // thumbnails says so plainly instead of leaving silent gaps in the review.
   ui.setThumbWarning = (n) => {
     ui.setWarn(
-      `${n} thumbnail${n === 1 ? '' : 's'} could not be loaded. Those photos are still in the results; ` +
-        'scroll the grid past them, or scan again, to pick up fresh links.'
+      `${n} thumbnail${n === 1 ? '' : 's'} could not be loaded. Those photos are still in the results and ` +
+        'can still be binned; scan again to pick up fresh thumbnail links.'
     );
   };
 
@@ -328,8 +315,10 @@ window.GPDD = window.GPDD || {};
   ui.del.onclick = () => {
     const n = state.toDelete.size;
     if (!armed) {
+      const was = ui.status.textContent;
       armed = setTimeout(() => {
         armed = null;
+        ui.setStatus(was, { keepUndo: true });
         refresh();
       }, 15000);
       // Kept short on purpose: a longer label reflows the footer and moves the
