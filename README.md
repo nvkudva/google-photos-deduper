@@ -148,6 +148,10 @@ document.dispatchEvent(new Event("gpdd-reload"));
 Run that in DevTools on a Google Photos tab, then reload the page. It restarts
 this extension and nothing else.
 
+To have that happen on every save, run `tools/dev-serve.py` and reload the
+extension once; the tab then restarts the extension and reloads itself
+whenever anything under `src/` or `manifest.json` changes.
+
 ## Limits
 
 - Hashes the on-screen thumbnail (~165×220 in a JPEG screenshot), not the

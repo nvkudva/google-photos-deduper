@@ -1,5 +1,5 @@
-// A "Deduper" entry in Google Photos' own sidebar, below Bin, that shows or
-// hides the panel. It is a clone of the Bin entry with its content swapped,
+// A "Deduper" entry in Google Photos' own sidebar, above the storage section,
+// that shows or hides the panel. It is a clone of the Bin entry with its content swapped,
 // so it borrows whatever classes the sidebar is using this week and follows
 // it when it collapses to icons.
 window.GPDD = window.GPDD || {};
@@ -10,6 +10,18 @@ window.GPDD.ui = window.GPDD.ui || {};
   // sidebar's own icon set has to "duplicates".
   const GLYPH = 'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z';
   const BIN = 'a[role="tab"][href$="trash"]';
+  const STORAGE = 'a[href*="one.google.com"], a[href*="quotamanagement"]';
+
+  // The storage section sits outside the scrolling tab list, so an entry
+  // beside it stays visible when the list grows a scrollbar. Returns the
+  // outermost ancestor of the storage link that does not also hold the tabs.
+  function storageSection(bin) {
+    const link = document.querySelector(STORAGE);
+    if (!link) return null;
+    let el = link;
+    while (el.parentElement && !el.parentElement.contains(bin)) el = el.parentElement;
+    return el.parentElement ? el : null;
+  }
 
   function build(bin, onClick) {
     const a = bin.cloneNode(true);
@@ -43,7 +55,15 @@ window.GPDD.ui = window.GPDD.ui || {};
       const bin = document.querySelector(BIN);
       if (!bin) return;
       entry = build(bin, () => ui.toggle());
-      bin.after(entry);
+      const storage = storageSection(bin);
+      if (storage) {
+        // The tab styles are scoped to the list wrapper, so the entry gets a
+        // wrapper of its own with the same classes as the storage tab's.
+        const wrap = document.createElement('div');
+        wrap.className = document.querySelector(STORAGE).parentElement.className;
+        wrap.appendChild(entry);
+        storage.before(wrap);
+      } else bin.after(entry);
       ui.onVisibility = (on) => entry.setAttribute('aria-pressed', String(on));
       ui.onVisibility(ui.host.style.display !== 'none');
     };
