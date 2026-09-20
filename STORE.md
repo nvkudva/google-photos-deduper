@@ -50,10 +50,10 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 
 | File | Shows |
 | --- | --- |
-| `01-review.png` | The panel docked over the library: date range, similarity, and the scan summary |
+| `01-start.png` | The panel before a scan: date range, similarity and the scan button, nothing found yet |
 | `02-groups.png` | Duplicate groups, each with its keeper ringed green and the others marked for the bin |
 | `03-preview.png` | A hovered thumbnail shown large with its capture time |
-| `04-confirm.png` | The bin button armed, with the status line spelling out what the next click does |
+| `04-sidebar.png` | The panel closed, with the note pointing at the Deduper entry in Google's own sidebar |
 
 They were taken against a real library, so every photo is blurred in CSS before
 capture — a listing screenshot is public. `src/dev-shot.js` does the blurring;
@@ -62,7 +62,7 @@ for the confirm step), then capture the viewport and scale it:
 
 ```
 screencapture -x -R<x>,<y>,1440,900 /tmp/s.png
-sips -z 800 1280 -s format png /tmp/s.png --out store/screenshots/01-review.png
+sips -z 800 1280 -s format png /tmp/s.png --out store/screenshots/01-start.png
 ```
 
 The helper is development-only and `tools/package.sh` keeps it out of the zip.

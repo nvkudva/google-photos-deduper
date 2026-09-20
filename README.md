@@ -19,9 +19,9 @@ Photos DeDuper" until the store listing was prepared — the store forbids a nam
 that implies affiliation. Listing copy is in [STORE.md](STORE.md); build the
 upload zip with `tools/package.sh`.
 
-![The panel docked over a Google Photos library, showing the range slider, the similarity slider and the first duplicate groups](store/screenshots/01-review.png)
+![The panel docked over a Google Photos library before a scan, showing the range slider, the similarity slider and the Scan button](store/screenshots/01-start.png)
 
-_The panel docked over the library: date range, similarity, and the scan summary._
+_The panel before a scan: pick a date range and a similarity, then scan._
 
 ![Duplicate groups, each with its keeper ringed green and the others marked for the bin](store/screenshots/02-groups.png)
 
@@ -33,10 +33,10 @@ photo in the group is marked for the bin, and Skip leaves the whole group alone.
 _Hovering a thumbnail shows it large with its capture time, so two near-identical
 shots can be told apart before either is deleted._
 
-![The bin button armed, with the status line spelling out what the next click does](store/screenshots/04-confirm.png)
+![The panel closed, with a note beside the Deduper entry in the Google Photos sidebar](store/screenshots/04-sidebar.png)
 
-_Nothing is deleted on one click: the button arms itself and the status line
-spells out exactly what the next click will do._
+_Closing the panel keeps it closed. It opens again from **Deduper** in Google
+Photos' own sidebar, which is where the note points._
 
 _Photos are blurred in every screenshot here — a real library is somebody's
 family, so `src/dev-shot.js` blurs the page before anything is captured._
