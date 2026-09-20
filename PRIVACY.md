@@ -31,6 +31,14 @@ browser already holds, and they are the same requests the page makes for you.
 
 The extension requests access to `https://photos.google.com` and nothing else.
 
+## No warranty
+
+This extension is provided as is, with no warranty of any kind. It moves photos
+in a real Google account, and the developer accepts no responsibility for any
+loss of data, however caused. Deletes stay recoverable in the Google Photos bin
+for 60 days — check that a run did what you expected before that window closes.
+Use it at your own risk.
+
 ## Contact
 
 Questions, or a problem to report: open an issue at

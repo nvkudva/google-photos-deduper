@@ -18,7 +18,8 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 > lets you clear them out in bulk.
 >
 > How it works
-> • Open photos.google.com and click the toolbar icon to show the panel.
+> • Open photos.google.com. The panel opens from "Deduper" in the sidebar,
+>   below Bin, or from the toolbar icon.
 > • Pick a date range and a similarity threshold, then scan. Thumbnails are
 >   fingerprinted in your own browser; nothing is uploaded anywhere.
 > • Review the results as cards. Each card keeps one photo and marks the rest
@@ -36,6 +37,13 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 > Photo DeDuper is an independent extension. It is not made by, endorsed by, or
 > affiliated with Google, and "Google Photos" is named only to say which site
 > the extension works on.
+>
+> Disclaimer
+> This extension is provided as is, with no warranty of any kind. It moves
+> photos in a real Google account, and the developer accepts no responsibility
+> for any loss of data, however caused. Deletes stay recoverable in the Google
+> Photos bin for 60 days — check a run did what you expected before that window
+> closes. Use it at your own risk.
 
 **Screenshots** (1280×800 PNG, at least one, up to five), in
 `store/screenshots/`:
