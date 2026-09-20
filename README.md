@@ -29,10 +29,8 @@ same group as the original.
 - **Recoverable** — deleting moves photos to the Google Photos bin, where they
   stay for 60 days, and Undo puts the last run straight back.
 
-Independent: not made by, endorsed by, or affiliated with Google. Named "Google
-Photos DeDuper" until the store listing was prepared — the store forbids a name
-that implies affiliation, so it is "Smart Photo Deduper" there and here. Listing copy is in [STORE.md](STORE.md); build the
-upload zip with `tools/package.sh`.
+Independent: not made by, endorsed by, or affiliated with Google. Listing copy
+is in [STORE.md](STORE.md); build the upload zip with `tools/package.sh`.
 
 ![The panel docked over a Google Photos library before a scan, showing the range slider, the similarity slider and the Scan button](store/screenshots/01-start.png)
 
@@ -65,13 +63,10 @@ the photos.google.com UI. Everything below was verified against the live site.
 
 | What             | Finding                                                                                                                                                                                                                                                                              |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Tile             | `a[href*="/photo/"]` — `./photo/<id>` in the main library, `./documents/<album>/photo/<id>` in album and Screenshots views; id is the segment after `/photo/`                                                                                                                        |
-| Capture date     | in the tile's `aria-label` (`"Photo – Portrait – 24 Aug 2025, 12:34:56"`) — free, no extra request                                                                                                                                                                                   |
-| Thumbnail        | `background-image` on a `[data-latest-bg]` descendant, served from `photos.fife.usercontent.google.com`                                                                                                                                                                              |
 | Listing          | the page's own timeline RPC (`lcxiM`) returns 500 items per request, newest first, with media key, dedup key, capture time, dimensions and a thumbnail base URL; a timestamp argument starts the listing at that date                                                                |
 | Thumbnail pixels | readable by a **credentialed** fetch from the content script (`credentials: "include"`, ~1.2KB at 32px). `crossOrigin="anonymous"` gets a transparent placeholder and a cookieless service-worker fetch gets a sign-in page, which is what the earlier "not readable" verdict tested |
 | Deletion         | the page's own `batchexecute` RPC (`XwAOJf`), which takes each photo's dedup key rather than the `/photo/<id>` media key; the media-info RPC (`VrseUb`) maps one to the other                                                                                                        |
-| Input            | **scripted clicks are ignored** — `.click()` and full synthetic pointer/mouse sequences both fail, including on the always-visible "Clear selection" button — which is why deletion talks to the RPC instead of the page                                                             |
+| Input            | **scripted clicks are ignored** — `.click()` and full synthetic pointer/mouse sequences both fail, including on the always-visible "Clear selection" button, so nothing is ever driven through the page's own UI                                                                     |
 
 Scanning never touches the grid: the library is listed through the same
 `batchexecute` RPC the page uses to fill its timeline, 500 items a request, and
@@ -112,14 +107,12 @@ Only then raise the cap.
 
 ## Use
 
-1. **Scan** — lists the library through the page's own timeline RPC, newest
-   first within the **Range**, fetches each thumbnail at 32px and hashes it
-   (dHash, 64-bit), writing to IndexedDB as it goes. Photos already hashed are
-   skipped, so a second scan only costs the new ones. Start with the default
-   cap of 2000 rather than the whole library. The tab does not need to stay
-   visible.
-2. Adjust **Similarity** to regroup — 100% is byte-identical thumbnails, lower
-   values catch recompressions and burst shots.
+1. **Scan** — walks the library newest first within the **Range**, hashing as
+   it goes. Photos already hashed are skipped, so a second scan only costs the
+   new ones. Start with the default cap of 2000 rather than the whole library.
+2. Adjust **Similarity** to regroup — at 100% only photos with identical
+   fingerprints group together; lower values catch recompressions, crops and
+   burst shots. Regrouping reads the local store, so it costs nothing.
 3. Review the groups. Green is the keeper (oldest by default). Click a photo to
    make it the group's keeper; click the badge on a thumbnail to flip that
    single item between keep and bin.
@@ -137,8 +130,8 @@ Only then raise the cap.
    seconds rather than opening a dialog; a content script's native `confirm()`
    blocks the whole renderer). It bins 250 photos per request and only counts a
    photo once Google's reply names it. Items land in the Google Photos bin and
-   stay recoverable there for as long as Google keeps them. Anything not
-   confirmed stays selected, so clicking again carries on.
+   stay recoverable there for 60 days. Anything not confirmed stays selected,
+   so clicking again carries on.
 
 **Scope** is the whole library, whichever view is open: the listing RPC walks
 the timeline regardless of the grid, and archive is left out. The **Range**
@@ -159,8 +152,9 @@ and each registers itself on `window.GPDD`.
   `styles` (design tokens and the shared chrome, controls and buttons) and
   `icons` (inline SVG), `range` (month slider), `preview` (the hover preview),
   `results` (group cards, paging, selection), `panel` (template, `mount()`,
-  status setters), `nav` (the Smart Deduper entry in Google Photos' sidebar). Each of `range`, `preview` and `results` carries its own
-  markup and CSS next to its code; `panel` concatenates the four stylesheets.
+  status setters), `nav` (the Smart Deduper entry in Google Photos' sidebar).
+  Each of `range`, `preview` and `results` carries its own markup and CSS next
+  to its code; `panel` concatenates the four stylesheets.
 - `src/content.js` — wiring: state, the scan, delete and undo flows, each
   bracketed by the same run lock.
 - `src/background.js` — extension reload and the toolbar button only.
