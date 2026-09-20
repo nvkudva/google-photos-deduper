@@ -6,25 +6,37 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 
 **Name** (45 max): `Smart Photo Deduper`
 
-**Short description** (132 max, 119 used):
+**Short description** (132 max, 121 used) — comes from `manifest.json`:
 
-> Finds visually duplicate photos in your Google Photos library, right in your browser, and bins the ones you choose to remove.
+> Finds duplicate photos in your Google Photos library by what they look like, not their names, and bins the ones you pick.
 
 **Category**: Workflow & Planning · **Language**: English (UK)
 
 **Detailed description**:
 
-> Smart Photo Deduper finds near-identical photos in your Google Photos library and
+> Smart Photo Deduper finds duplicate photos in your Google Photos library and
 > lets you clear them out in bulk.
+>
+> What makes it smart
+> • It matches what a photo looks like, not its filename, date or size. The copy
+>   that was re-saved, resized, recompressed or passed through a chat app is
+>   still grouped with the original.
+> • One similarity slider decides how alike is alike. At 100% only near-identical
+>   copies group together; ease it down to catch crops and re-saves. The results
+>   regroup as you drag, with no rescanning.
+> • Each group arrives with a keeper already chosen — the oldest photo, the
+>   likely original — and the rest marked for the bin. Change it with one click.
+> • It remembers what it has already fingerprinted, so a second scan costs only
+>   the new photos.
 >
 > How it works
 > • Open photos.google.com. The panel opens from "Smart Deduper" in the sidebar,
 >   below Bin, or from the toolbar icon.
-> • Pick a date range and a similarity threshold, then scan. Thumbnails are
->   fingerprinted in your own browser; nothing is uploaded anywhere.
-> • Review the results as cards. Each card keeps one photo and marks the rest
->   for the bin. Click a photo to keep that one instead, click a badge to change
->   one photo's fate, or use a card's own Skip and "Move to bin" buttons.
+> • Pick a date range and a similarity, then scan. Photos are fingerprinted in
+>   your own browser; nothing is uploaded anywhere.
+> • Review the results as cards. Hover a photo to see it large with its capture
+>   time, click one to keep it instead, click a badge to change one photo's fate,
+>   or use a card's own Skip and "Move to bin" buttons.
 > • When you are happy, move the selection to the bin. Everything goes to the
 >   Google Photos bin, where it stays recoverable for 60 days. The extension
 >   never deletes anything permanently.
@@ -34,9 +46,9 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 >   review decisions live in your browser's own storage and never leave it.
 > • Nothing is deleted without you selecting it and confirming.
 >
-> Smart Photo Deduper is an independent extension. It is not made by, endorsed by, or
-> affiliated with Google, and "Google Photos" is named only to say which site
-> the extension works on.
+> Smart Photo Deduper is an independent extension. It is not made by, endorsed
+> by, or affiliated with Google, and "Google Photos" is named only to say which
+> site the extension works on.
 >
 > Disclaimer
 > This extension is provided as is, with no warranty of any kind. It moves
@@ -92,7 +104,7 @@ package.
 - Not being sold to third parties; not used or transferred for purposes
   unrelated to the single purpose; not used to determine creditworthiness.
 
-**Privacy policy URL**: <https://nvkudva.github.io/google-photos-deduper/>
+**Privacy policy URL**: <https://nvkudva.github.io/smart-photo-deduper/>
 
 Served from `docs/index.html` in this repo; the same text is in `PRIVACY.md`.
 Turn it on once under repo Settings → Pages → Source: `main` / `/docs`.

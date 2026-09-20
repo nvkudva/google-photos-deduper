@@ -42,4 +42,4 @@ Use it at your own risk.
 ## Contact
 
 Questions, or a problem to report: open an issue at
-<https://github.com/nvkudva/google-photos-deduper/issues>.
+<https://github.com/nvkudva/smart-photo-deduper/issues>.

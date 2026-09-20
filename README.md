@@ -1,18 +1,33 @@
 # Smart Photo Deduper
 
-A Chrome extension that scans the Google Photos library of whoever is signed in,
-finds visually duplicate photos, and moves the ones you choose to the bin.
+A Chrome extension that finds duplicate photos in the Google Photos library of
+whoever is signed in and moves the ones you choose to the bin. It matches what a
+photo *looks* like, not its filename or its bytes, so the copy that was
+re-saved, re-compressed, resized or shared through a chat app still lands in the
+same group as the original.
 
 ## Features
 
-- **Fast** — a small perceptual hash of every photo is kept in a local IndexedDB, so a
-  library is scanned once and regrouping after that is instant.
-- **Scales** — built for libraries in the tens of thousands. Photos are listed/scanned in bulk in background. So no scrolling to scan all photos.
-- **Tunable** — one similarity slider, 70% to 100%. Set it to 100% to match only
-  exact copies, or ease it down to catch crops, re-saves and re-compressions of
-  the same shot.
-- **Recoverable** — Deleting moves photos to the Google Photos bin, where they stay for 60
-  days, and Undo puts the last run straight back.
+- **Sees past the file** — every photo is reduced to a 64-bit perceptual
+  fingerprint of its thumbnail, so an edited, resized or recompressed copy is
+  still recognised as the same picture. Filenames, dates and file sizes are
+  never what it matches on.
+- **Tunable** — one similarity slider, 70% to 100%. At 100% only near-identical
+  copies group together; ease it down to catch crops, re-saves and
+  recompressions of the same shot, and the results regroup as you drag.
+- **Picks a keeper for you** — each group arrives with the oldest photo, the
+  likely original, already marked to keep and the rest marked for the bin. One
+  click moves the keeper somewhere else; nothing is decided for you.
+- **Remembers what it has seen** — fingerprints live in a local IndexedDB, so a
+  library is scanned once. A later scan costs only the new photos, and changing
+  the similarity regroups what is already there instantly.
+- **Scales** — built for libraries in the tens of thousands. Photos are listed
+  and hashed in bulk in the background through the page's own API, so there is
+  no scrolling and the tab does not need to stay visible.
+- **Stays in your browser** — no server, no account, no analytics. The
+  fingerprints and every decision you make never leave the machine.
+- **Recoverable** — deleting moves photos to the Google Photos bin, where they
+  stay for 60 days, and Undo puts the last run straight back.
 
 Independent: not made by, endorsed by, or affiliated with Google. Named "Google
 Photos DeDuper" until the store listing was prepared — the store forbids a name
@@ -209,7 +224,7 @@ extension would have needed the same months of traffic capture without it.
 
 Nothing is collected and nothing leaves the browser; fingerprints live in
 IndexedDB on your own machine. Full text: [PRIVACY.md](PRIVACY.md), published at
-<https://nvkudva.github.io/google-photos-deduper/>.
+<https://nvkudva.github.io/smart-photo-deduper/>.
 
 ## Disclaimer
 
