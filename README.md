@@ -33,9 +33,9 @@ photo in the group is marked for the bin, and Skip leaves the whole group alone.
 _Hovering a thumbnail shows it large with its capture time, so two near-identical
 shots can be told apart before either is deleted._
 
-![The panel closed, with a note beside the Deduper entry in the Google Photos sidebar](store/screenshots/04-sidebar.png)
+![The panel closed, with a note beside the Smart Deduper entry in the Google Photos sidebar](store/screenshots/04-sidebar.png)
 
-_Closing the panel keeps it closed. It opens again from **Deduper** in Google
+_Closing the panel keeps it closed. It opens again from **Smart Deduper** in Google
 Photos' own sidebar, which is where the note points._
 
 _Photos are blurred in every screenshot here — a real library is somebody's
@@ -80,7 +80,7 @@ Unpacked, until the Chrome Web Store listing is live.
 
 1. `chrome://extensions` → enable **Developer mode**
 2. **Load unpacked** → select this folder
-3. Open <https://photos.google.com>. Show or hide the panel from **Deduper** in
+3. Open <https://photos.google.com>. Show or hide the panel from **Smart Deduper** in
    the sidebar, below Bin, or from the extension's toolbar icon.
 
 ## First run — do this before pointing it at anything large
@@ -116,7 +116,7 @@ Only then raise the cap.
 
    The minimise button collapses the panel to its title bar. The close button
    next to it hides the panel and keeps it hidden across reloads — a note by the
-   sidebar says so — until **Deduper** in the sidebar opens it again.
+   sidebar says so — until **Smart Deduper** in the sidebar opens it again.
 
 4. **Move selected to bin** — click it twice (the button arms itself for fifteen
    seconds rather than opening a dialog; a content script's native `confirm()`
@@ -144,7 +144,7 @@ and each registers itself on `window.GPDD`.
   `styles` (design tokens and the shared chrome, controls and buttons) and
   `icons` (inline SVG), `range` (month slider), `preview` (the hover preview),
   `results` (group cards, paging, selection), `panel` (template, `mount()`,
-  status setters), `nav` (the Deduper entry in Google Photos' sidebar). Each of `range`, `preview` and `results` carries its own
+  status setters), `nav` (the Smart Deduper entry in Google Photos' sidebar). Each of `range`, `preview` and `results` carries its own
   markup and CSS next to its code; `panel` concatenates the four stylesheets.
 - `src/content.js` — wiring: state, the scan, delete and undo flows, each
   bracketed by the same run lock.

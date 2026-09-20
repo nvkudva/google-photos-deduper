@@ -1,4 +1,4 @@
-// A "Deduper" entry in Google Photos' own sidebar, above the storage section,
+// A "Smart Deduper" entry in Google Photos' own sidebar, above the storage section,
 // that shows or hides the panel. It is a clone of the Bin entry with its content swapped,
 // so it borrows whatever classes the sidebar is using this week and follows
 // it when it collapses to icons.
@@ -29,7 +29,7 @@ window.GPDD.ui = window.GPDD.ui || {};
     // routing and logging hooks, which must not fire for an entry of ours.
     [...a.attributes].forEach((at) => { if (at.name !== 'class') a.removeAttribute(at.name); });
     a.setAttribute('role', 'button');
-    a.setAttribute('aria-label', 'Deduper');
+    a.setAttribute('aria-label', 'Smart Deduper');
     a.setAttribute('aria-pressed', 'false');
     a.tabIndex = 0;
     a.dataset.gpdd = 'nav';
@@ -37,7 +37,7 @@ window.GPDD.ui = window.GPDD.ui || {};
     if (path) path.setAttribute('d', GLYPH);
     // The label is the innermost element that holds the text.
     const label = [...a.querySelectorAll('*')].reverse().find((el) => !el.children.length && el.textContent.trim());
-    if (label) label.textContent = 'Deduper';
+    if (label) label.textContent = 'Smart Deduper';
     // The page delegates clicks at the document, so a click here must stop
     // before it gets there, or the sidebar treats it as a navigation.
     a.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onClick(); });
@@ -75,7 +75,7 @@ window.GPDD.ui = window.GPDD.ui || {};
             opacity: 1;
           }
         </style>
-        <div class="n">Smart Photo Deduper is closed. Open it again from <b>Deduper</b> in the sidebar.</div>
+        <div class="n">Smart Photo Deduper is closed. Open it again from <b>Smart Deduper</b> in the sidebar.</div>
       `;
       document.documentElement.append(note);
     }

@@ -18,7 +18,7 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 > lets you clear them out in bulk.
 >
 > How it works
-> • Open photos.google.com. The panel opens from "Deduper" in the sidebar,
+> • Open photos.google.com. The panel opens from "Smart Deduper" in the sidebar,
 >   below Bin, or from the toolbar icon.
 > • Pick a date range and a similarity threshold, then scan. Thumbnails are
 >   fingerprinted in your own browser; nothing is uploaded anywhere.
@@ -53,7 +53,7 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 | `01-start.png` | The panel before a scan: date range, similarity and the scan button, nothing found yet |
 | `02-groups.png` | Duplicate groups, each with its keeper ringed green and the others marked for the bin |
 | `03-preview.png` | A hovered thumbnail shown large with its capture time |
-| `04-sidebar.png` | The panel closed, with the note pointing at the Deduper entry in Google's own sidebar |
+| `04-sidebar.png` | The panel closed, with the note pointing at the Smart Deduper entry in Google's own sidebar |
 
 They were taken against a real library, so every photo is blurred in CSS before
 capture — a listing screenshot is public. `src/dev-shot.js` does the blurring;
