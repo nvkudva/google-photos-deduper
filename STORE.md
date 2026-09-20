@@ -84,9 +84,10 @@ package.
 - Not being sold to third parties; not used or transferred for purposes
   unrelated to the single purpose; not used to determine creditworthiness.
 
-**Privacy policy URL**: required by the dashboard even with nothing collected.
-A single page saying the above is enough — a GitHub Pages page or a README
-anchor works.
+**Privacy policy URL**: <https://nvkudva.github.io/google-photos-deduper/>
+
+Served from `docs/index.html` in this repo; the same text is in `PRIVACY.md`.
+Turn it on once under repo Settings → Pages → Source: `main` / `/docs`.
 
 ## Before the first upload
 

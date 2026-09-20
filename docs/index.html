@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Photo DeDuper — Privacy policy</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fff;
+        --fg: #1f2023;
+        --muted: #5f6368;
+        --rule: #e3e5e8;
+        --link: #1a73e8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1b1c1e;
+          --fg: #e8eaed;
+          --muted: #9aa0a6;
+          --rule: #33353a;
+          --link: #8ab4f8;
+        }
+      }
+      body {
+        margin: 0 auto;
+        max-width: 42rem;
+        padding: 3rem 1rem 5rem;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.65 -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+      h1 {
+        margin: 0 0 0.25rem;
+        font-size: 1.75rem;
+      }
+      h2 {
+        margin: 2.25rem 0 0.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--rule);
+        font-size: 1.1rem;
+      }
+      .date {
+        margin: 0 0 2rem;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .lead {
+        font-size: 1.1rem;
+      }
+      a {
+        color: var(--link);
+      }
+      code {
+        padding: 0.1em 0.35em;
+        border-radius: 4px;
+        background: color-mix(in srgb, var(--fg) 8%, transparent);
+        font-size: 0.9em;
+      }
+      footer {
+        margin-top: 3rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--rule);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Photo DeDuper — Privacy policy</h1>
+    <p class="date">Last updated: 20 September 2026</p>
+
+    <p class="lead">
+      Photo DeDuper does not collect, transmit, sell or share any personal data.
+    </p>
+
+    <h2>What the extension does</h2>
+    <p>
+      It runs only on <code>https://photos.google.com</code>, in your own browser, signed in as you. It reads your
+      library through the same requests the Google Photos page itself makes, fingerprints each photo's thumbnail so it
+      can group visual duplicates, and moves the photos you select to the Google Photos bin.
+    </p>
+
+    <h2>What is stored, and where</h2>
+    <ul>
+      <li>
+        A small numeric fingerprint of each photo, its capture date, its dimensions and its thumbnail URL are written to
+        <strong>IndexedDB inside your own browser</strong>. This is what makes a second scan fast.
+      </li>
+      <li>Nothing else is stored. No account details, no photos, no file contents.</li>
+      <li>
+        <strong>Reset</strong> in the panel deletes everything the extension has stored. Uninstalling the extension has
+        the same effect.
+      </li>
+    </ul>
+
+    <h2>What leaves your browser</h2>
+    <p>
+      Nothing. There is no server, no analytics, no telemetry, no crash reporting and no remote code: every script runs
+      from the installed package. The only network requests the extension makes go to Google Photos itself, with the
+      session your browser already holds, and they are the same requests the page makes for you.
+    </p>
+
+    <h2>Permissions</h2>
+    <p>The extension requests access to <code>https://photos.google.com</code> and nothing else.</p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions, or a problem to report: open an issue at
+      <a href="https://github.com/nvkudva/google-photos-deduper/issues"
+        >github.com/nvkudva/google-photos-deduper/issues</a
+      >.
+    </p>
+
+    <footer>
+      Photo DeDuper is an independent project. It is not made by, endorsed by, or affiliated with Google.
+    </footer>
+  </body>
+</html>

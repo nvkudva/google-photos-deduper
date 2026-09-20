@@ -205,6 +205,12 @@ media info (`VrseUb`), the bin listing (`zy0IHe`) and the trash/restore call
 (MIT), which reverse-engineered and has maintained them since 2024. This
 extension would have needed the same months of traffic capture without it.
 
+## Privacy
+
+Nothing is collected and nothing leaves the browser; fingerprints live in
+IndexedDB on your own machine. Full text: [PRIVACY.md](PRIVACY.md), published at
+<https://nvkudva.github.io/google-photos-deduper/>.
+
 ## Disclaimer
 
 This extension is provided as is, with no warranty of any kind. It deletes
