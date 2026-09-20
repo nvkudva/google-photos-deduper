@@ -10,7 +10,7 @@ window.GPDD.ui = window.GPDD.ui || {};
 
   const HTML = /* HTML */ `
     <div class="panel" data-ref="panel">
-      <div class="hd"><b>Photo DeDuper</b><button class="min" data-ref="min" title="Minimise"></button><button class="close" data-ref="close" title="Close"></button></div>
+      <div class="hd"><b>Smart Photo Deduper</b><button class="min" data-ref="min" title="Minimise"></button><button class="close" data-ref="close" title="Close"></button></div>
       <div class="body">
         <div class="controls">
           <div class="warn" data-ref="warn" style="display:none"></div>

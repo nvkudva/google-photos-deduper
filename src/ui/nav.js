@@ -75,7 +75,7 @@ window.GPDD.ui = window.GPDD.ui || {};
             opacity: 1;
           }
         </style>
-        <div class="n">Photo DeDuper is closed. Open it again from <b>Deduper</b> in the sidebar.</div>
+        <div class="n">Smart Photo Deduper is closed. Open it again from <b>Deduper</b> in the sidebar.</div>
       `;
       document.documentElement.append(note);
     }

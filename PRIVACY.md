@@ -1,8 +1,8 @@
-# Privacy policy — Photo DeDuper
+# Privacy policy — Smart Photo Deduper
 
 _Last updated: 20 September 2026_
 
-Photo DeDuper does not collect, transmit, sell or share any personal data.
+Smart Photo Deduper does not collect, transmit, sell or share any personal data.
 
 ## What the extension does
 

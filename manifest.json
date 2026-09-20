@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Photo DeDuper",
+  "name": "Smart Photo Deduper",
   "version": "1.0.0",
   "description": "Finds visually duplicate photos in your Google Photos library, in your browser, and bins the ones you pick.",
   "host_permissions": [
@@ -10,7 +10,7 @@
     "service_worker": "src/background.js"
   },
   "action": {
-    "default_title": "Photo DeDuper",
+    "default_title": "Smart Photo Deduper",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

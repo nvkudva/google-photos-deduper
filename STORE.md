@@ -4,7 +4,7 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 
 ## Store listing
 
-**Name** (45 max): `Photo DeDuper`
+**Name** (45 max): `Smart Photo Deduper`
 
 **Short description** (132 max, 119 used):
 
@@ -14,7 +14,7 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 
 **Detailed description**:
 
-> Photo DeDuper finds near-identical photos in your Google Photos library and
+> Smart Photo Deduper finds near-identical photos in your Google Photos library and
 > lets you clear them out in bulk.
 >
 > How it works
@@ -34,7 +34,7 @@ Copy for the Developer Dashboard. Keep this file in step with `manifest.json`.
 >   review decisions live in your browser's own storage and never leave it.
 > • Nothing is deleted without you selecting it and confirming.
 >
-> Photo DeDuper is an independent extension. It is not made by, endorsed by, or
+> Smart Photo Deduper is an independent extension. It is not made by, endorsed by, or
 > affiliated with Google, and "Google Photos" is named only to say which site
 > the extension works on.
 >
