@@ -89,7 +89,7 @@ window.GPDD = window.GPDD || {};
   // Fetches and hashes the wanted items through a pool of IN_FLIGHT workers,
   // of which only the throttle's allowed count are active at a time. Returns
   // the rows that hashed and how many did not.
-  async function hashAll(wanted, throttle, shouldStop, stats) {
+  async function hashAll(wanted, throttle, shouldStop, stats, tick) {
     const rows = [];
     let failed = 0;
     let idx = 0;
@@ -108,9 +108,10 @@ window.GPDD = window.GPDD || {};
             else if (++attempt < 2) await sleep(500);
           }
         }
-        if (!ok) { failed++; stats.failed++; continue; }
+        if (!ok) { failed++; stats.failed++; tick(rows.length, failed); continue; }
         stats.fetched++;
         rows.push({ id: it.id, kind: it.kind, ts: it.ts, day: it.day, thumb: it.base + THUMB_SIZE, hash: h });
+        tick(rows.length, failed);
       }
     }));
     return { rows, failed };
@@ -132,13 +133,35 @@ window.GPDD = window.GPDD || {};
     const startTs = toMs != null ? toMs - 1 : null;
     let newestTs = null;
 
+    // The pool hands each hash over the moment it lands, so the counter can
+    // climb steadily instead of jumping a whole 500-item page at once. The
+    // page in flight is not in the store yet, so its counts ride along here
+    // until the page-end report folds them into added/skipped.
+    let liveRows = 0;
+    let liveFailed = 0;
+    let lastOldestTs = null; // oldest edge reached by the last finished page
+    let lastTick = 0;
+
     const report = (oldestTs) => {
       let pct = null;
       if (oldestTs != null && newestTs != null) {
         const floor = fromMs != null ? fromMs : null;
         if (floor != null && newestTs > floor) pct = Math.min(100, Math.round(((newestTs - oldestTs) / (newestTs - floor)) * 100));
       }
-      onProgress({ scanned: known.size, added, skipped, pct });
+      // Failures ride only in skipped - counting them in scanned would walk
+      // the counter back when the page boundary drops them out of known.
+      onProgress({ scanned: known.size + liveRows, added: added + liveRows, skipped: skipped + liveFailed, pct });
+    };
+
+    // Ticked by the pool on every settle; report at most 10x a second so the
+    // status line repaints a few times a second, not once per photo.
+    const tick = (rows, failed) => {
+      liveRows = rows;
+      liveFailed = failed;
+      const now = performance.now();
+      if (now - lastTick < 100) return;
+      lastTick = now;
+      report(lastOldestTs);
     };
 
     const throttle = makeThrottle(stats, onProgress);
@@ -159,8 +182,10 @@ window.GPDD = window.GPDD || {};
       ).slice(0, Math.max(0, maxItems - added));
 
       const t0 = performance.now();
-      const { rows, failed } = await hashAll(wanted, throttle, shouldStop, stats);
+      const { rows, failed } = await hashAll(wanted, throttle, shouldStop, stats, tick);
       stats.hashMs += performance.now() - t0;
+      liveRows = 0;
+      liveFailed = 0;
       skipped += failed;
 
       if (rows.length) {
@@ -169,6 +194,7 @@ window.GPDD = window.GPDD || {};
         added += rows.length;
       }
       report(page.oldestTs);
+      lastOldestTs = page.oldestTs;
 
       if (added >= maxItems) break;
       if (fromMs != null && page.oldestTs != null && page.oldestTs < fromMs) break;
