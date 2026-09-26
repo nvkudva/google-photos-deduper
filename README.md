@@ -6,6 +6,8 @@ photo *looks* like, not its filename or its bytes, so the copy that was
 re-saved, re-compressed, resized or shared through a chat app still lands in the
 same group as the original.
 
+https://github.com/user-attachments/assets/b30d08f5-88bf-476b-8987-0f71b86e7eea
+
 ## Features
 
 - **Sees past the file** — every photo is reduced to a 64-bit perceptual
