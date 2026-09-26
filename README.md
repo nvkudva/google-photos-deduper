@@ -6,7 +6,7 @@ photo *looks* like, not its filename or its bytes, so the copy that was
 re-saved, re-compressed, resized or shared through a chat app still lands in the
 same group as the original.
 
-https://github.com/user-attachments/assets/b30d08f5-88bf-476b-8987-0f71b86e7eea
+https://github.com/user-attachments/assets/f9fbfabf-f5fb-437f-96cc-33a5c77a3cf7
 
 ## Features
 
